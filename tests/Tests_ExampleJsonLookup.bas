@@ -1,5 +1,5 @@
 Attribute VB_Name = "Tests_ExampleJsonLookup"
-' External API - odoo-JSON-RPC-VBA
+' External API - odoo-json-rpc-2-vba
 '
 ' MIT License
 '

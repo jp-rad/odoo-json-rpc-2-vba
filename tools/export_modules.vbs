@@ -1,4 +1,4 @@
-' External API - odoo-JSON-RPC-VBA
+' External API - odoo-json-rpc-2-vba
 '
 ' MIT License
 '
@@ -76,7 +76,7 @@ Public Sub ExportModules()
     cur = GetScriptFolderName()
     
     Dim fnm 'As String
-    fnm = fso.BuildPath(cur, "../odoo-json-rpc-vba develop.xlsm")
+    fnm = fso.BuildPath(cur, "../odoo-json-rpc-2-vba develop.xlsm")
     
     Dim wbk 'As Workbook
     Set wbk = appExcel.Workbooks.Open(fnm, , True)

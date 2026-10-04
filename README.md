@@ -1,9 +1,9 @@
-## odoo-JSON-RPC-VBA
+## odoo-json-rpc-2-vba
 
 Odoo's models API is easily accessible via JSON-RPC and can be used from VBA, such as in Excel applications.
 
 - [Odoo Docs - External API](https://www.odoo.com/documentation/master/developer/reference/external_api.html)
-- odoo-JSON-RPC-VBA (GitHub repository: [https://github.com/jp-rad/odoo-json-rpc-vba](https://github.com/jp-rad/odoo-json-rpc-vba))
+- odoo-json-rpc-2-vba (GitHub repository: [https://github.com/jp-rad/odoo-json-rpc-2-vba](https://github.com/jp-rad/odoo-json-rpc-2-vba))
 
 ### Excel VBA Example
 
@@ -111,19 +111,19 @@ git clone --recursive https://github.com/jp-rad/odoo-json-rpc-2-vba
 Run the batch file to create the example workbook:
 
 ```
-cd odoo-json-rpc-vba
+cd odoo-json-rpc-2-vba
 ./create_workbook.bat
 ```
 
 **Open the Excel Files:**  
-- Open both `odoo-json-rpc-vba example.xlsm` and `odoo-json-rpc-vba.xlam`.
+- Open both `odoo-json-rpc-2-vba example.xlsm` and `odoo-json-rpc-2-vba.xlam`.
 
 **Configure References in Visual Basic Editor (VBE):**  
 - Open the Visual Basic Editor (VBE).  
-- In VBE, select the project `odoo-json-rpc-vba example.xlsm`.  
+- In VBE, select the project `odoo-json-rpc-2-vba example.xlsm`.  
 - Go to **Tools** > **References**.  
 - In the References dialog, select `OdooJsonRpcVBA`.
-- **Additionally, select the following reference in the add‑in project `odoo-json-rpc-vba.xlam`:**  
+- **Additionally, select the following reference in the add‑in project `odoo-json-rpc-2-vba.xlam`:**  
   - **Microsoft ActiveX Data Objects 2.8 Library**  
     *(or another available version such as 6.1, depending on your system)*  
   This reference is required for ADODB Recordset operations used by the library.

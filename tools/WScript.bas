@@ -1,5 +1,5 @@
 Attribute VB_Name = "WScript"
-' External API - odoo-JSON-RPC-VBA
+' External API - odoo-json-rpc-2-vba
 '
 ' MIT License
 '

@@ -1,4 +1,4 @@
-' External API - odoo-JSON-RPC-VBA
+' External API - odoo-json-rpc-2-vba
 '
 ' MIT License
 '
@@ -132,7 +132,7 @@ Public Sub BuildWorkbookFile(t)
     basVersionFile = fso.BuildPath(tempPath, "OdVersion.bas")
     with fso.CreateTextFile(basVersionFile, True)
         .WriteLine "Attribute VB_Name = ""OdVersion"""
-        .WriteLine "' External API - odoo-JSON-RPC-VBA"
+        .WriteLine "' External API - odoo-json-rpc-2-vba"
         .WriteLine "' "
         .WriteLine "' Version: " & VERSION
         .WriteLine "' "
@@ -153,15 +153,15 @@ Public Sub BuildWorkbookFile(t)
     Dim fnm 'As String
     If t = "library" Then
         wbk.VBProject.Name="OdooJsonRpcVBA"
-        fnm = fso.BuildPath(cur, "../odoo-json-rpc-vba.xlam")
+        fnm = fso.BuildPath(cur, "../odoo-json-rpc-2-vba.xlam")
         appExcel.DisplayAlerts = False
         wbk.SaveAs fnm, 55 'xlOpenXMLAddIn
     ElseIf t = "example" Then
-        fnm = BuildUniqueFilePath(cur, "../odoo-json-rpc-vba example", "xlsm")
+        fnm = BuildUniqueFilePath(cur, "../odoo-json-rpc-2-vba example", "xlsm")
         wbk.SaveAs fnm, 52 'xlOpenXMLWorkbookMacroEnabled
     Else    ' "develop"
         wbk.VBProject.Name="OdooJsonRpcVBADev"
-        fnm = BuildUniqueFilePath(cur, "../odoo-json-rpc-vba develop", "xlsm")
+        fnm = BuildUniqueFilePath(cur, "../odoo-json-rpc-2-vba develop", "xlsm")
         wbk.SaveAs fnm, 52 'xlOpenXMLWorkbookMacroEnabled
     End If
 

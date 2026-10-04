@@ -1,5 +1,5 @@
 Attribute VB_Name = "OdxApi"
-' External API - odoo-JSON-RPC-VBA
+' External API - odoo-json-rpc-2-vba
 '
 ' MIT License
 '
@@ -164,7 +164,7 @@ Public Function AddRecordsetField(rs As ADODB.Recordset, dicModelField As Dictio
             rs.Fields.Append Name:=sFieldName, Type:=adLongVarWChar, DefinedSize:=-1, Attrib:=CATTR_O2M Or attrOdooNullable
 
         '----------------------------------------
-        ' many2many: list of id Å® CSV
+        ' many2many: list of id ÔøΩÔøΩ CSV
         '----------------------------------------
         Case "many2many"
             rs.Fields.Append Name:=sFieldName, Type:=adLongVarWChar, DefinedSize:=-1, Attrib:=CATTR_M2M Or attrOdooNullable
