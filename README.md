@@ -103,7 +103,7 @@ record count: 3
 Clone the repository with submodules:
 
 ```
-git clone --recursive https://github.com/jp-rad/odoo-json-rpc-vba
+git clone --recursive https://github.com/jp-rad/odoo-json-rpc-2-vba
 ```
 
 ### Example Workbook
