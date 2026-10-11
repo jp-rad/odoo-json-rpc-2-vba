@@ -84,8 +84,10 @@ End Property
 ' @param aUrl Base URL of the Odoo instance
 ' @param aDb Database name
 ' @param aApiKey Odoo API Key
+'
+' @return Od2Client Initialized Od2Client instance
 ''
-Public Sub Initialize(aUrl As String, aDb As String, aApiKey As String)
+Public Function Initialize(aUrl As String, aDb As String, aApiKey As String) As Od2Client
     ' Remove trailing slash if present
     If Right$(aUrl, 1) = "/" Then
         m_baseUrl = Left$(aUrl, Len(aUrl) - 1)
@@ -97,7 +99,9 @@ Public Sub Initialize(aUrl As String, aDb As String, aApiKey As String)
     
     m_webClient.BaseUrl = m_baseUrl
     m_initialized = True
-End Sub
+    
+    Set Initialize = Me
+End Function
 
 ''
 ' Retrieve Odoo Server Version (GET /web/version)

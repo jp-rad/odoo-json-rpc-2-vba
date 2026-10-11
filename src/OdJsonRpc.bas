@@ -144,6 +144,22 @@ Function ValueOrDefault(ByVal vValue As Variant, Optional ByVal aDefaultValue As
 End Function
 
 ''
+' Performs a deep copy of a Dictionary object using JSON serialization.
+'
+' @param dic Target Dictionary to copy
+' @return Dictionary Cloned Dictionary instance
+''
+Private Function DeepCopyDictionary(dic As Dictionary) As Dictionary
+    Dim sJson As String
+    Debug.Assert dic.CompareMode = BinaryCompare
+    
+    sJson = WebHelpers.ConvertToJson(dic)
+    Set DeepCopyDictionary = WebHelpers.ParseJson(sJson)
+    
+    Debug.Assert DeepCopyDictionary.CompareMode = dic.CompareMode
+End Function
+
+''
 ' ------------------------------------------------------------------------------
 ' Factory
 ' ------------------------------------------------------------------------------
