@@ -68,7 +68,8 @@ Private Function CreateTraditionalRepository() As OdxRepository
     Dim oRepo As OdRepository
     
     ' Create and initialize OdClient with direct arguments: (Url, Db, UserName, ApiKey)
-    Set oClient = OdJsonRpc.CreateOdClient("https://localhost", "dev_odoo", "admin", "your_api_key")
+    Set oClient = NewOdClient
+    oClient.Initialize "https://localhost", "dev_odoo", "admin", "your_api_key"
     
     Set oRepo = NewOdRepository
     oRepo.Initialize oClient
@@ -81,7 +82,7 @@ End Function
 
 ### Example 2: Creating Repository for New External JSON-2 API (`Od2Client`)
 
-*Note: External API v2 authenticates using the database and API key (or token) only, without requiring a username.*
+*Note: External API v2 authenticates using the database and API key only, without requiring a username.*
 
 ```vb
 Private Function CreateJson2Repository() As OdxRepository
@@ -89,7 +90,8 @@ Private Function CreateJson2Repository() As OdxRepository
     Dim oRepo2 As Od2Repository
     
     ' Create and initialize Od2Client with direct arguments: (Url, Db, ApiKey)
-    Set oClient2 = OdJsonRpc.CreateOd2Client("https://localhost", "dev_odoo", "your_api_key")
+    Set oClient2 = NewOd2Client
+    oClient.Initialize "https://localhost", "dev_odoo", "your_api_key"
     
     Set oRepo2 = NewOd2Repository
     oRepo2.Initialize oClient2
@@ -114,7 +116,8 @@ Sub DoSimpleSearchReadOdxModel()
     Dim oDomain As OdFilterDomain
     
     ' Use your repository creation function here
-    Set oRepo = CreateTraditionalRepository()
+    ' Set oRepo = CreateTraditionalRepository()
+    Set oRepo = CreateJson2Repository()
     
     ' Create OdxModel for 'res.partner'
     Set oModel = NewOdxModel(oRepo, "res.partner")
@@ -126,24 +129,17 @@ Sub DoSimpleSearchReadOdxModel()
     
     ' Fetch data with a domain filter
     Set oDomain = NewDomain
-    oDomain.AddArity NewField("name").IsIn(Array("Mitchell Admin"))
+    oDomain.AddArity NewField("name").IsIn(Array("Mitchell Admin", "Gemini Furniture"))
     oModel.FetchSearchAndReadRemote oDomain.Build
     
     Debug.Print "Fetched record count: " & oModel.Recordset.RecordCount
-End Sub
-```
-
-#### 2. Advanced: Traversing Relations (`res.partner` and related fields)
-
-Traversing **Many2one**, **One2many**, and **Many2many** relations hierarchically:
-
-```vb
-Sub DoRelationsTraversalOdxModel()
+End SubSub DoRelationsTraversalOdxModel()
     Dim oRepo As OdxRepository
     Dim oModel As OdxModel
     Dim oDomain As OdFilterDomain
     
-    Set oRepo = CreateTraditionalRepository()
+    ' Set oRepo = CreateTraditionalRepository()
+    Set oRepo = CreateJson2Repository()
     
     ' Define model and nested relations
     Set oModel = NewOdxModel(oRepo, "res.partner")
@@ -180,23 +176,31 @@ Sub DoRelationsTraversalOdxModel()
     
     ' Fetch records matching criteria
     Set oDomain = NewDomain
-    oDomain.AddArity NewField("name").IsIn(Array("Gemini Furniture"))
+    oDomain.AddArity NewField("name").IsIn(Array("Mitchell Admin", "Gemini Furniture"))
     oModel.FetchSearchAndReadRemote oDomain.Build
     
     ' Access data and related models
-    Debug.Print "Partner Name: " & oModel.Recordset.Fields("name").Value
-    
-    Dim oCompanyModel As OdxModel
-    Set oCompanyModel = oModel.GetRelatedModel("company_id")
-    If Not oCompanyModel Is Nothing Then
-        Debug.Print "  -> Company Name: " & oCompanyModel.Recordset.Fields("name").Value
-    End If
-    
-    Dim oChildModel As OdxModel
-    Set oChildModel = oModel.GetRelatedModel("child_ids")
-    If Not oChildModel Is Nothing Then
-        Debug.Print "  -> Child Partner Count: " & oChildModel.Recordset.RecordCount
-    End If
+    Do Until oModel.Recordset.EOF
+        Debug.Print "Partner Name: " & oModel.Recordset.Fields("name").Value
+        
+        Dim oCompanyModel As OdxModel
+        Set oCompanyModel = oModel.GetRelatedModel("company_id")
+        If Not oCompanyModel Is Nothing Then
+            If oCompanyModel.Recordset.RecordCount = 1 Then
+                Debug.Print "  -> Company Name: " & oCompanyModel.Recordset.Fields("name").Value
+            Else
+                Debug.Print "  -> Company Count: " & oCompanyModel.Recordset.RecordCount
+            End If
+        End If
+        
+        Dim oChildModel As OdxModel
+        Set oChildModel = oModel.GetRelatedModel("child_ids")
+        If Not oChildModel Is Nothing Then
+            Debug.Print "  -> Child Partner Count: " & oChildModel.Recordset.RecordCount
+        End If
+        
+        oModel.Recordset.MoveNext
+    Loop
 End Sub
 ```
 
