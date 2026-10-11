@@ -133,7 +133,15 @@ Sub DoSimpleSearchReadOdxModel()
     oModel.FetchSearchAndReadRemote oDomain.Build
     
     Debug.Print "Fetched record count: " & oModel.Recordset.RecordCount
-End SubSub DoRelationsTraversalOdxModel()
+End Sub
+```
+
+#### 2. Advanced: Traversing Relations (`res.partner` and related fields)
+
+Traversing **Many2one**, **One2many**, and **Many2many** relations hierarchically:
+
+```vb
+Sub DoRelationsTraversalOdxModel()
     Dim oRepo As OdxRepository
     Dim oModel As OdxModel
     Dim oDomain As OdFilterDomain
