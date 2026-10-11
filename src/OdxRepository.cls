@@ -47,12 +47,9 @@ Option Explicit
 ' Features:
 '   - Dynamic delegation of Odoo RPC model operations (Search, Read, Write, etc.)
 '   - Unified initialization and validation handling
-'   - Model schema caching and deep-copy utilities
+'   - Model schema caching utilities
 ' ==============================================================================
 ''
-
-Private Const ERR_UNINITIALIZED As Long = vbObjectError + 1003
-Private Const ERR_API_EXECUTION  As Long = vbObjectError + 1004
 
 Private m_Type1 As OdRepository
 Private m_Type2 As Od2Repository
@@ -66,8 +63,10 @@ Private m_SchemaCache As Dictionary
 ' Initializes the wrapper with either an OdRepository or Od2Repository instance.
 '
 ' @param aRepository Repository instance (OdRepository or Od2Repository)
+'
+' @return OdxRepository Initialized OdxRepository instance
 ''
-Public Sub Initialize(aRepository As Object)
+Public Function Initialize(aRepository As Object) As OdxRepository
     If TypeOf aRepository Is OdRepository Then
         Set m_Type1 = aRepository
     ElseIf TypeOf aRepository Is Od2Repository Then
@@ -76,7 +75,9 @@ Public Sub Initialize(aRepository As Object)
         Err.Raise ERR_API_EXECUTION, "OdxRepository", "Provided repository instance is invalid or Nothing."
     End If
     Set m_SchemaCache = New Dictionary
-End Sub
+    
+    Set Initialize = Me
+End Function
 
 Private Property Get IsType1() As Boolean
     IsType1 = Not (m_Type1 Is Nothing)
@@ -130,12 +131,12 @@ Public Function GetModelFields( _
 End Function
 
 ''
-' Retrieves field definitions for a model, utilizing an internal cache.
+' Retrieves model schema field definitions, utilizing an internal cache.
 '
 ' @param aModelName Target Odoo model name
 ' @return Dictionary Field definitions mapping
 ''
-Public Function FetchModelFields(aModelName As String) As Dictionary
+Public Function ModelSchema(aModelName As String) As Dictionary
     Dim dicModelFields As Dictionary
     
     If m_SchemaCache.Exists(aModelName) Then
@@ -143,37 +144,11 @@ Public Function FetchModelFields(aModelName As String) As Dictionary
         GoTo ExitProc
     End If
     
-    Set dicModelFields = GetModelFields(aModelName)
+    Set dicModelFields = GetModelFields(aModelName)("result")
     Set m_SchemaCache(aModelName) = dicModelFields
 
 ExitProc:
-    Set FetchModelFields = dicModelFields
-End Function
-
-''
-' Performs a deep copy of a Dictionary object using JSON serialization.
-'
-' @param dic Target Dictionary to copy
-' @return Dictionary Cloned Dictionary instance
-''
-Private Function DeepCopyDictionary(dic As Dictionary) As Dictionary
-    Dim sJson As String
-    Debug.Assert dic.CompareMode = BinaryCompare
-    
-    sJson = WebHelpers.ConvertToJson(dic)
-    Set DeepCopyDictionary = WebHelpers.ParseJson(sJson)
-    
-    Debug.Assert DeepCopyDictionary.CompareMode = dic.CompareMode
-End Function
-
-''
-' Retrieves a deep-copied schema definition for a specified model.
-'
-' @param aModelName Target Odoo model name
-' @return Dictionary Cloned model fields dictionary
-''
-Public Function GetModelSchema(aModelName As String) As Dictionary
-    Set GetModelSchema = DeepCopyDictionary(FetchModelFields(aModelName))
+    Set ModelSchema = dicModelFields
 End Function
 
 ''

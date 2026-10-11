@@ -517,7 +517,7 @@ ExitProc:
 End Function
 
 Public Function GetModelSchema() As Dictionary
-    Set GetModelSchema = mRepository.GetModelSchema(mModelName)("result")
+    Set GetModelSchema = mRepository.ModelSchema(mModelName)
 End Function
 
 Private Function IsOdooField(fld As ADODB.Field) As Boolean
@@ -647,7 +647,7 @@ Private Function AddRecordsetFieldAndRelatedModel(aRs As ADODB.Recordset, aModel
     Dim dicModelFields As Dictionary
     Dim dicModelField As Dictionary
     
-    Set dicModelFields = mRepository.GetModelFields(aModelName)("result")
+    Set dicModelFields = mRepository.ModelSchema(aModelName)
     Debug.Assert Not dicModelFields Is Nothing
     Debug.Assert dicModelFields.Exists(aFieldName)
     Set dicModelField = dicModelFields(aFieldName)
