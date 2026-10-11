@@ -1,0 +1,381 @@
+Attribute VB_Name = "SpecOdFilter"
+' External API - odoo-json-rpc-2-vba
+'
+' MIT License
+'
+' Copyright (c) 2022-2027 jp-rad
+'
+' Permission is hereby granted, free of charge, to any person obtaining a copy
+' of this software and associated documentation files (the "Software"), to deal
+' in the Software without restriction, including without limitation the rights
+' to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+' copies of the Software, and to permit persons to whom the Software is
+' furnished to do so, subject to the following conditions:
+'
+' The above copyright notice and this permission notice shall be included in all
+' copies or substantial portions of the Software.
+'
+' THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+' IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+' FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+' AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+' LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+' OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+' SOFTWARE.
+'
+
+Option Explicit
+
+'
+' Search domains - ORM API
+'
+' A search domain is a first-order logical predicate used for filtering and searching recordsets.
+' You combine simple conditions on a field expression with logical operators.
+'
+' https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#search-domains
+'
+
+''
+' Registers all test specifications for search domains.
+'
+' @param Suite TestSuite instance
+''
+Public Sub RegisterSpecs(Suite As TestSuite)
+    
+    SpecJson Suite
+    SpecCombi Suite
+    SpecField Suite
+    SpecCriteria Suite
+    SpecDomain Suite
+    SpecCoding Suite
+    
+End Sub
+
+''
+' Tests JSON serialization for various value types within search criteria.
+'
+' @param Suite TestSuite instance
+''
+Private Sub SpecJson(Suite As TestSuite)
+    Dim Tests As New TestSuite
+    Dim Test As TestCase
+    Dim v As Variant
+
+    With Suite.Test("TestJson - True/False/Nothing To true/false/null")
+        Set Test = Tests.Test("should pass")
+        With NewField("is_company")
+            With .Eq(Null) ' Null
+                TestIsEqualJson Test, "['is_company', '=', null]", .ToJson()
+            End With
+            With .Eq(v) ' Empty
+                TestIsEqualJson Test, "['is_company', '=', null]", .ToJson()
+            End With
+            With .Eq(True)
+                TestIsEqualJson Test, "['is_company', '=', true]", .ToJson()
+            End With
+            With .Eq(False)
+                TestIsEqualJson Test, "['is_company', '=', false]", .ToJson()
+            End With
+            With .Eq(Nothing)
+                TestIsEqualJson Test, "['is_company', '=', null]", .ToJson()
+            End With
+        End With
+        .IsEqual Test.Result, TestResultType.Pass
+    End With
+    
+End Sub
+
+''
+' Tests logical combinations (AND, OR, NOT) for search domains.
+'
+' @param Suite TestSuite instance
+''
+Public Sub SpecCombi(Suite As TestSuite)
+    Dim Tests As New TestSuite
+    Dim Test As TestCase
+
+    With Suite.Test("TestCombi - 2, 3")
+        Set Test = Tests.Test("should pass")
+
+        With NewAnd(NewField("phone").IsILike("7620"), NewField("mobile").IsILike("7620"))
+            TestIsEqualJsonCsv Test, "'&', ['phone', 'ilike', '7620'], ['mobile', 'ilike', '7620']", .ToJson()
+            .Add NewField("fax").IsILike("7620")
+            TestIsEqualJsonCsv Test, "'&', '&', ['phone', 'ilike', '7620'], ['mobile', 'ilike', '7620'], ['fax', 'ilike', '7620']", .ToJson()
+        End With
+        
+        With NewOr(NewField("phone").IsILike("7620"), NewField("mobile").IsILike("7620"))
+            TestIsEqualJsonCsv Test, "'|', ['phone', 'ilike', '7620'], ['mobile', 'ilike', '7620']", .ToJson()
+            .Add NewField("fax").IsILike("7620")
+            TestIsEqualJsonCsv Test, "'|', '|', ['phone', 'ilike', '7620'], ['mobile', 'ilike', '7620'], ['fax', 'ilike', '7620']", .ToJson()
+        End With
+        
+        With NewNot(NewField("phone").IsILike("7620"))
+            TestIsEqualJsonCsv Test, "'!', ['phone', 'ilike', '7620']", .ToJson()
+            .Add NewField("mobile").IsILike("7620")
+            TestIsEqualJsonCsv Test, "'!', ['phone', 'ilike', '7620']", .ToJson()
+            .Add NewField("fax").IsILike("7620")
+            TestIsEqualJsonCsv Test, "'!', ['phone', 'ilike', '7620']", .ToJson()
+        End With
+        
+        .IsEqual Test.Result, TestResultType.Pass
+    End With
+        
+End Sub
+
+''
+' Tests field-based expression builders for search conditions.
+'
+' @param Suite TestSuite instance
+''
+Public Sub SpecField(Suite As TestSuite)
+    '
+    ' Example
+    '
+    ' To search for partners named ABC, with a phone or mobile number containing 7620:
+    '
+    '    [('name', '=', 'ABC'),
+    '     '|', ('phone','ilike','7620'), ('mobile', 'ilike', '7620')]
+    '
+    ' To search sales orders to invoice that have at least one line with a product that is out of stock:
+    '
+    '    [('invoice_status', '=', 'to invoice'),
+    '     ('order_line', 'any', [('product_id.qty_available', '<=', 0)])]
+    '
+    ' To search for all partners born in the month of February:
+    '
+    '    [('birthday.month_number', '=', 2)]
+
+    Dim Tests As New TestSuite
+    Dim Test As TestCase
+
+    With Suite.Test("TestField")
+        Set Test = Tests.Test("should pass")
+
+        With NewField("name").Eq("ABC")
+            TestIsEqualJson Test, "['name', '=', 'ABC']", .ToJson()
+        End With
+        
+        With NewField("phone").IsILike("7620")
+            TestIsEqualJson Test, "['phone', 'ilike', '7620']", .ToJson()
+        End With
+        
+        With NewField("mobile").IsILike("7620")
+            TestIsEqualJson Test, "['mobile', 'ilike', '7620']", .ToJson()
+        End With
+        
+        With NewField("invoice_status").Eq("to invoice")
+            TestIsEqualJson Test, "['invoice_status', '=', 'to invoice']", .ToJson()
+        End With
+                
+        With NewField("product_id.qty_available").Le(0)
+            TestIsEqualJson Test, "['product_id.qty_available', '<=', 0]", .ToJson()
+        End With
+        
+        With NewField("order_line").IsAny(NewDomain().AddArity(NewField("product_id.qty_available").Le(0)))
+            TestIsEqualJson Test, "['order_line', 'any', [['product_id.qty_available', '<=', 0]]]", .ToJson()
+        End With
+    
+        With NewField("birthday.month_number").Eq(2)
+            TestIsEqualJson Test, "['birthday.month_number', '=', 2]", .ToJson()
+        End With
+
+        Dim d As OdFilterDomain
+        Set d = NewDomain
+        d.AddArity "abc's"
+        d.AddArity 123
+        With NewField("name").IsIn(d)
+            TestIsEqualJson Test, "['name', 'in', [""abc's"", 123]]", .ToJson()
+        End With
+
+        .IsEqual Test.Result, TestResultType.Pass
+    End With
+End Sub
+
+''
+' Tests criteria-based expression builders for search conditions.
+'
+' @param Suite TestSuite instance
+''
+Public Sub SpecCriteria(Suite As TestSuite)
+    '
+    ' Example
+    '
+    ' To search for partners named ABC, with a phone or mobile number containing 7620:
+    '
+    '    [('name', '=', 'ABC'),
+    '     '|', ('phone','ilike','7620'), ('mobile', 'ilike', '7620')]
+    '
+    ' To search sales orders to invoice that have at least one line with a product that is out of stock:
+    '
+    '    [('invoice_status', '=', 'to invoice'),
+    '     ('order_line', 'any', [('product_id.qty_available', '<=', 0)])]
+    '
+    ' To search for all partners born in the month of February:
+    '
+    '    [('birthday.month_number', '=', 2)]
+
+    Dim Tests As New TestSuite
+    Dim Test As TestCase
+
+    With Suite.Test("TestCriteria")
+        Set Test = Tests.Test("should pass")
+        
+        With NewCriteria("name", "=", "ABC")
+            TestIsEqualJson Test, "['name', '=', 'ABC']", .ToJson()
+        End With
+        
+        With NewCriteria("phone", "ilike", "7620")
+            TestIsEqualJson Test, "['phone', 'ilike', '7620']", .ToJson()
+        End With
+        
+        With NewCriteria("mobile", "ilike", "7620")
+            TestIsEqualJson Test, "['mobile', 'ilike', '7620']", .ToJson()
+        End With
+        
+        With NewCriteria("invoice_status", "=", "to invoice")
+            TestIsEqualJson Test, "['invoice_status', '=', 'to invoice']", .ToJson()
+        End With
+        
+        With NewCriteria("invoice_status", "=", "to invoice")
+            TestIsEqualJson Test, "['invoice_status', '=', 'to invoice']", .ToJson()
+        End With
+        
+        With NewCriteria("product_id.qty_available", "<=", 0)
+            TestIsEqualJson Test, "['product_id.qty_available', '<=', 0]", .ToJson()
+        End With
+        
+        With NewCriteria("order_line", "any", NewDomain().AddArity(NewCriteria("product_id.qty_available", "<=", 0)))
+            TestIsEqualJson Test, "['order_line', 'any', [['product_id.qty_available', '<=', 0]]]", .ToJson()
+        End With
+    
+        With NewCriteria("birthday.month_number", "=", 2)
+            TestIsEqualJson Test, "['birthday.month_number', '=', 2]", .ToJson()
+        End With
+        
+        .IsEqual Test.Result, TestResultType.Pass
+    End With
+
+End Sub
+
+''
+' Tests building and validating full search domain lists.
+'
+' @param Suite TestSuite instance
+''
+Public Sub SpecDomain(Suite As TestSuite)
+    '
+    ' Example
+    '
+    ' To search for partners named ABC, with a phone or mobile number containing 7620:
+    '
+    '    [('name', '=', 'ABC'),
+    '     '|', ('phone','ilike','7620'), ('mobile', 'ilike', '7620')]
+    '
+    ' To search sales orders to invoice that have at least one line with a product that is out of stock:
+    '
+    '    [('invoice_status', '=', 'to invoice'),
+    '     ('order_line', 'any', [('product_id.qty_available', '<=', 0)])]
+    '
+    ' To search for all partners born in the month of February:
+    '
+    '    [('birthday.month_number', '=', 2)]
+    
+    Dim Tests As New TestSuite
+    Dim Test As TestCase
+
+    With Suite.Test("TestDomain")
+        Set Test = Tests.Test("should pass")
+        
+        With NewDomain()
+            .AddArity NewField("name").Eq("ABC")
+            .AddArity NewOr(NewField("phone").IsILike("7620"), NewField("mobile").IsILike("7620"))
+            Test.IsOk IsValidJson(.ToJson())
+            TestIsEqualJson Test, "[['name','=','ABC'],'|',['phone','ilike','7620'],['mobile','ilike','7620']]", WebHelpers.ConvertToJson(.Build)
+        End With
+        
+        With NewDomain()
+            .AddArity NewField("invoice_status").Eq("to invoice")
+            .AddArity NewField("order_line").IsAny(NewDomain().AddArity(NewField("product_id.qty_available").Le(0)))
+            Test.IsOk IsValidJson(.ToJson())
+            TestIsEqualJson Test, "[['invoice_status','=','to invoice'],['order_line','any',[['product_id.qty_available','<=',0]]]]", WebHelpers.ConvertToJson(.Build)
+        End With
+        
+        With NewDomain()
+            .AddArity NewCriteria("birthday.month_number", "=", 2)
+            Test.IsOk IsValidJson(.ToJson())
+            TestIsEqualJson Test, "[['birthday.month_number','=',2]]", WebHelpers.ConvertToJson(.Build)
+        End With
+        
+        .IsEqual Test.Result, TestResultType.Pass
+    End With
+
+End Sub
+
+''
+' Tests real-world coding usage scenarios for search domains.
+'
+' @param Suite TestSuite instance
+''
+Public Sub SpecCoding(Suite As TestSuite)
+    Dim params As Collection
+    Dim domain As OdFilterDomain
+    Dim subdomain As OdFilterDomain
+    Dim criteria As OdFilterCriteria
+    Dim nId As Long
+    Dim v As Variant
+    
+    Dim Tests As New TestSuite
+    Dim Test As TestCase
+
+    With Suite.Test("TestCoding")
+        Set Test = Tests.Test("should pass")
+
+        ' [[['is_company', '=', True]]]
+        Set params = NewList
+        With NewDomain
+            .AddArity NewField("is_company").Eq(True)
+            .BuildAndAppend params
+        End With
+        TestIsEqualJson Test, "[[['is_company','=',true]]]", WebHelpers.ConvertToJson(params)
+        
+        ' [[['id', '=', id]]]
+        nId = &H7FFFFFFF ' 2147483647
+        Set params = NewList
+        With NewDomain()
+            .AddArity NewField("id").Eq(nId)
+            .BuildAndAppend params
+        End With
+        TestIsEqualJson Test, "[[['id','=',2147483647]]]", WebHelpers.ConvertToJson(params)
+    
+        ' [[['id', '=', id]]]
+        ' id = 0, 1, 2, 3
+        ' build
+        Set domain = NewDomain
+        Set criteria = NewField("id").Eq(Empty)
+        domain.AddArity criteria
+        ' loop
+        For Each v In Split("0, 1, 2, 3", ",")
+            nId = v
+            criteria.SetValue nId
+            Set params = NewList
+            params.Add domain.Build
+            TestIsEqualJson Test, "[[['id','='," & nId & "]]]", WebHelpers.ConvertToJson(params)
+        Next v
+        
+        '    [[['invoice_status', '=', 'to invoice',
+        '     ['order_line', 'any', [['product_id.qty_available', '<=', 0]]]]]
+        '
+        Set params = NewList
+        Set subdomain = NewDomain()
+        subdomain.AddArity NewField("product_id.qty_available").Le(0)
+        With NewDomain()
+            .AddArity NewField("invoice_status").Eq("to invoice")
+            .AddArity NewField("order_line").IsAny(subdomain)
+            .BuildAndAppend params
+        End With
+        TestIsEqualJson Test, "[[['invoice_status','=','to invoice'],['order_line','any',[['product_id.qty_available','<=',0]]]]]", WebHelpers.ConvertToJson(params)
+        
+        .IsEqual Test.Result, TestResultType.Pass
+    End With
+
+End Sub

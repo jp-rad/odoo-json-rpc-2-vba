@@ -1,0 +1,8 @@
+{
+    "git.ignoredRepositories": [
+        "imports/VBA-Dictionary",
+        "imports/VBA-JSON",
+        "imports/VBA-Test",
+        "imports/VBA-Web",
+    ]
+}

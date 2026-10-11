@@ -1,0 +1,12 @@
+[submodule "imports/VBA-Dictionary"]
+	path = imports/VBA-Dictionary
+	url = https://github.com/VBA-tools/VBA-Dictionary.git
+[submodule "imports/VBA-JSON"]
+	path = imports/VBA-JSON
+	url = https://github.com/VBA-tools/VBA-JSON.git
+[submodule "imports/VBA-Test"]
+	path = imports/VBA-Test
+	url = https://github.com/VBA-tools/vba-test.git
+[submodule "imports/VBA-Web"]
+	path = imports/VBA-Web
+	url = https://github.com/VBA-tools/VBA-Web.git

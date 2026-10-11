@@ -1,0 +1,35 @@
+# basic modules
+example	../src/ExampleOd2Tutrial.bas
+example	../src/ExampleOdTutrial.bas
+example	../src/ExampleOdxTutrial.bas
+example	../src/JsonUtils.bas
+library	../src/OdJsonRpc.bas
+example	../src/OdxFactory.bas
+tests	../tests/SpecJsonUtils.bas
+tests	../tests/SpecOd2Client.bas
+tests	../tests/SpecOd2Repository.bas
+tests	../tests/SpecOdClient.bas
+tests	../tests/SpecOdFilter.bas
+tests	../tests/SpecOdRepository.bas
+tests	../tests/SpecRunner.bas
+imports	../imports/VBA-Web/src/WebHelpers.bas
+# class modules
+imports	../imports/VBA-Dictionary/Dictionary.cls
+vbatest	../imports/VBA-Test/src/FileReporter.cls
+vbatest	../imports/VBA-Test/src/ImmediateReporter.cls
+imports	../imports/VBA-Web/src/IWebAuthenticator.cls
+library	../src/Od2Client.cls
+library	../src/Od2Repository.cls
+library	../src/OdClient.cls
+library	../src/OdFilterCombi.cls
+library	../src/OdFilterCriteria.cls
+library	../src/OdFilterDomain.cls
+library	../src/OdRepository.cls
+library	../src/OdxModel.cls
+library	../src/OdxRepository.cls
+vbatest	../imports/VBA-Test/src/TestCase.cls
+vbatest	../imports/VBA-Test/src/TestSuite.cls
+imports	../imports/VBA-Web/src/WebClient.cls
+imports	../imports/VBA-Web/src/WebRequest.cls
+# imports	../imports/VBA-Web/src/WebResponse.cls
+library	../src/WebResponse.cls
