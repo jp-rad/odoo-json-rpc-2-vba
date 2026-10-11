@@ -516,10 +516,6 @@ ExitProc:
     Exit Function
 End Function
 
-Public Function GetModelSchema() As Dictionary
-    Set GetModelSchema = mRepository.ModelSchema(mModelName)
-End Function
-
 Private Function IsOdooField(fld As ADODB.Field) As Boolean
     IsOdooField = 0 = (fld.attributes And CBIT_DSP)
 End Function
@@ -550,20 +546,6 @@ End Function
 
 Private Function IsOdooDateTimeField(fld As ADODB.Field) As Boolean
     IsOdooDateTimeField = adDate = fld.Type
-End Function
-
-Private Function ExecuteModelFieldsGet(aModelName As String) As Dictionary
-    Dim colAttributes As Collection
-    Set colAttributes = NewList
-    With colAttributes
-        .Add CODOO_ATTR_NAME
-        .Add CODOO_ATTR_STRING
-        .Add CODOO_ATTR_TYPE
-        .Add CODOO_ATTR_RELATION
-        .Add CODOO_ATTR_FKEY
-        .Add CODOO_ATTR_REQUIRED
-    End With
-    Set ExecuteModelFieldsGet = mRepository.GetModelFields(aModelName, aAttributes:=colAttributes)("result")
 End Function
 
 Private Function CreateNewRecordSet() As ADODB.Recordset
