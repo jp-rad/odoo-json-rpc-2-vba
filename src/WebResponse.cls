@@ -13,6 +13,10 @@ Attribute VB_Exposed = True
 '
 ' Wrapper for http/cURL responses that includes parsed Data based on WebRequest.ResponseFormat.
 '
+' Revision History:
+'   - v4.1.6 (Custom): Updated `web_LoadValues` method to support parsing primitive JSON responses
+'                      by automatically wrapping non-object/non-array content into a JSON array structure.
+'
 ' Usage:
 ' ```VB.net
 ' Dim Response As WebResponse
@@ -304,9 +308,18 @@ Private Sub web_LoadValues(web_Headers As String, web_Content As String, web_Bod
     ' Convert content to data by format
     If web_Request.ResponseFormat <> WebFormat.PlainText Then
         On Error Resume Next
+        
+        ' If format is JSON and content is a primitive value (not starting with '{' or '['),
+        ' wrap it in brackets to ensure it parses correctly as a collection/array.
+        Dim targetContent As String
+        If web_Request.RequestFormat = WebFormat.json And Left(web_Content, 1) <> "{" And Left(web_Content, 1) <> "[" Then
+            targetContent = "[" & web_Content & "]"
+        Else
+            targetContent = web_Content
+        End If
         Set Me.Data = _
-            WebHelpers.ParseByFormat(web_Content, web_Request.ResponseFormat, web_Request.CustomResponseFormat, web_Body)
-
+            WebHelpers.ParseByFormat(targetContent, web_Request.ResponseFormat, web_Request.CustomResponseFormat, web_Body)
+        
         If Err.Number <> 0 Then
             WebHelpers.LogError Err.Description, Err.Source, Err.Number
             Err.Clear
