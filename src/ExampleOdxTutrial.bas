@@ -130,7 +130,7 @@ Private Sub ExecuteTutrial(oRepo As OdxRepository)
         ' res.partner
         ' -------------
         DebugRange rng, .ModelName
-        DebugRangeSchema rng, .ModelName, .GetModelSchema()
+        DebugRangeSchema rng, .ModelName, oRepo.ModelSchema(.ModelName)
         
         .AddField "name"
         .AddField "is_company"
@@ -142,7 +142,7 @@ Private Sub ExecuteTutrial(oRepo As OdxRepository)
             ' --------------------------
             DebugRange rng, "company_id: many2one --> " & .ModelName
             Debug.Assert .IsMany2One
-            DebugRangeSchema rng, .ModelName, .GetModelSchema()
+            DebugRangeSchema rng, .ModelName, oRepo.ModelSchema(.ModelName)
             
             .AddField "name"
             .AddField "city"
@@ -153,7 +153,7 @@ Private Sub ExecuteTutrial(oRepo As OdxRepository)
                 ' --------------------------
                 DebugRange rng, "company_id: many2one --> currency_id: many2one --> " & .ModelName
                 Debug.Assert .IsMany2One
-                DebugRangeSchema rng, .ModelName, .GetModelSchema()
+                DebugRangeSchema rng, .ModelName, oRepo.ModelSchema(.ModelName)
                 
                 .AddField "name"
                 .AddField "symbol"
@@ -170,7 +170,7 @@ Private Sub ExecuteTutrial(oRepo As OdxRepository)
             ' --------------------------
             DebugRange rng, "child_ids: one2many --> " & .ModelName
             Debug.Assert .IsOne2Many
-            DebugRangeSchema rng, .ModelName, .GetModelSchema()
+            DebugRangeSchema rng, .ModelName, oRepo.ModelSchema(.ModelName)
             
             .AddField "name"
         End With
@@ -181,7 +181,7 @@ Private Sub ExecuteTutrial(oRepo As OdxRepository)
             ' --------------------------
             DebugRange rng, "category_id: many2many --> " & .ModelName
             Debug.Assert .IsMany2Many
-            DebugRangeSchema rng, .ModelName, .GetModelSchema()
+            DebugRangeSchema rng, .ModelName, oRepo.ModelSchema(.ModelName)
             
             .AddField "name"
         End With
@@ -267,7 +267,7 @@ End Sub
 ' @param dicModelSchema Dictionary of field schema definitions
 ''
 Private Sub DebugRangeSchema(ByRef rng As Range, aModelName As String, dicModelSchema As Dictionary)
-    Debug.Print WebHelpers.ConvertToJson(dicModelSchema)
+    ' Debug.Print WebHelpers.ConvertToJson(dicModelSchema)
     
     Dim tag As String
     Dim i As Long

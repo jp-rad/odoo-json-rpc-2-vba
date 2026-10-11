@@ -62,14 +62,18 @@ End Sub
 ' Initializes the repository with an authenticated or ready-to-use OdClient.
 '
 ' @param aClient Authenticated or initialized OdClient instance
+'
+' @return OdRepository Initialized OdRepository instance
 ''
-Public Sub Initialize(aClient As OdClient)
+Public Function Initialize(aClient As OdClient) As OdRepository
     If aClient Is Nothing Then
         Err.Raise ERR_API_EXECUTION, "OdRepository", "Provided client instance is Nothing."
     End If
     Set m_client = aClient
     m_userId = 0
-End Sub
+    
+    Set Initialize = Me
+End Function
 
 ''
 ' Check if the repository has been initialized
