@@ -36,20 +36,26 @@ Option Explicit
 ' ==============================================================================
 ''
 
-Private Const CONFIG_URL      As String = "URL"
-Private Const CONFIG_DB       As String = "DB"
-Private Const CONFIG_USERNAME As String = "USERNAME"
-Private Const CONFIG_KEY      As String = "KEY"
+Private Const CONFIG_URL        As String = "URL"
+Private Const CONFIG_DB         As String = "DB"
+Private Const CONFIG_USERNAME   As String = "USERNAME"
+Private Const CONFIG_APIKEY     As String = "APIKEY"
+Private Const CONFIG_INSECURE   As String = "INSECURE"
+Private Const CONFIG_TIMEOUTMS  As String = "TIMEOUTMS"
 
-Private Const DEFAULT_URL      As String = "https://server"
-Private Const DEFAULT_DB       As String = "db_name"
-Private Const DEFAULT_USERNAME As String = "user_name"
-Private Const DEFAULT_KEY      As String = "api_key"
+Private Const DEFAULT_URL       As String = "https://localhost"
+Private Const DEFAULT_DB        As String = "dev_odoo"
+Private Const DEFAULT_USERNAME  As String = "admin"
+Private Const DEFAULT_APIKEY    As String = "admin"
+Private Const DEFAULT_TIMEOUTMS As Long = 5000
+Private Const DEFAULT_INSECURE  As Boolean = False
 
 Private pOdUrl       As String
 Private pOdDb        As String
 Private pOdUserName  As String
-Private pOdKey       As String
+Private pOdApiKey    As String
+Private pOdTimeoutMs As String
+Private pOdInsecure  As String
 
 Private pLoadedConfigPath As String
 
@@ -60,20 +66,49 @@ Private pLoadedConfigPath As String
 ''
 
 Public Property Get OdUrl() As String
-    OdUrl = pOdUrl
+    If Len(pOdUrl) > 0 Then
+        OdUrl = pOdUrl
+    Else
+        OdUrl = DEFAULT_URL
+    End If
 End Property
 
 Public Property Get OdDb() As String
-    OdDb = pOdDb
+    If Len(pOdDb) > 0 Then
+        OdDb = pOdDb
+    Else
+        OdDb = DEFAULT_DB
+    End If
 End Property
 
 Public Property Get OdUserName() As String
-    OdUserName = pOdUserName
+    If Len(pOdUserName) > 0 Then
+        OdUserName = pOdUserName
+    Else
+        OdUserName = DEFAULT_USERNAME
+    End If
 End Property
 
-Public Property Get OdKey() As String
-    OdKey = pOdKey
+Public Property Get OdApiKey() As String
+    If Len(pOdApiKey) > 0 Then
+        OdApiKey = pOdApiKey
+    Else
+        OdApiKey = DEFAULT_APIKEY
+    End If
 End Property
+
+Public Property Get OdTimeoutMs() As Long
+On Error Resume Next
+    OdTimeoutMs = DEFAULT_TIMEOUTMS
+    OdTimeoutMs = CLng(pOdTimeoutMs)
+End Property
+
+Public Property Get OdInsecure() As Boolean
+On Error Resume Next
+    OdInsecure = DEFAULT_INSECURE
+    OdInsecure = CBool(pOdInsecure)
+End Property
+
 
 ''
 ' ------------------------------------------------------------------------------
@@ -110,10 +145,12 @@ Private Sub LoadConfigFromTextFile(configPath As String)
             
             If Len(valStr) > 0 Then
                 Select Case keyName
-                    Case CONFIG_URL:      pOdUrl = valStr
-                    Case CONFIG_DB:       pOdDb = valStr
-                    Case CONFIG_USERNAME: pOdUserName = valStr
-                    Case CONFIG_KEY:      pOdKey = valStr
+                    Case CONFIG_URL:        pOdUrl = valStr
+                    Case CONFIG_DB:         pOdDb = valStr
+                    Case CONFIG_USERNAME:   pOdUserName = valStr
+                    Case CONFIG_APIKEY:     pOdApiKey = valStr
+                    Case CONFIG_INSECURE:   pOdInsecure = valStr
+                    Case CONFIG_TIMEOUTMS:  pOdTimeoutMs = valStr
                 End Select
             End If
         End If
@@ -137,7 +174,9 @@ Private Sub CreateDefaultConfigFile(FilePath As String)
     Print #fileNum, CONFIG_URL & "=" & DEFAULT_URL
     Print #fileNum, CONFIG_DB & "=" & DEFAULT_DB
     Print #fileNum, CONFIG_USERNAME & "=" & DEFAULT_USERNAME
-    Print #fileNum, CONFIG_KEY & "=" & DEFAULT_KEY
+    Print #fileNum, CONFIG_APIKEY & "=" & DEFAULT_APIKEY
+    Print #fileNum, CONFIG_TIMEOUTMS & "=" & DEFAULT_TIMEOUTMS
+    Print #fileNum, CONFIG_INSECURE & "=" & DEFAULT_INSECURE
     Close #fileNum
 End Sub
 
@@ -174,13 +213,19 @@ Public Function CreateOdClient( _
         End If
     End If
     
-    If Len(targetUrl) = 0 Then targetUrl = pOdUrl
-    If Len(targetDb) = 0 Then targetDb = pOdDb
-    If Len(targetUserName) = 0 Then targetUserName = pOdUserName
-    If Len(targetKey) = 0 Then targetKey = pOdKey
+    If Len(targetUrl) = 0 Then targetUrl = OdUrl
+    If Len(targetDb) = 0 Then targetDb = OdDb
+    If Len(targetUserName) = 0 Then targetUserName = OdUserName
+    If Len(targetKey) = 0 Then targetKey = OdApiKey
     
     Set CreateOdClient = NewOdClient
-    CreateOdClient.Initialize targetUrl, targetDb, targetUserName, targetKey
+    With CreateOdClient
+        .Initialize targetUrl, targetDb, targetUserName, targetKey
+        With .RefWebClient
+            .TimeoutMs = OdTimeoutMs
+            .Insecure = OdInsecure
+        End With
+    End With
 End Function
 
 ''
@@ -211,11 +256,17 @@ Public Function CreateOd2Client( _
         End If
     End If
     
-    If Len(targetUrl) = 0 Then targetUrl = pOdUrl
-    If Len(targetDb) = 0 Then targetDb = pOdDb
-    If Len(targetKey) = 0 Then targetKey = pOdKey
+    If Len(targetUrl) = 0 Then targetUrl = OdUrl
+    If Len(targetDb) = 0 Then targetDb = OdDb
+    If Len(targetKey) = 0 Then targetKey = OdApiKey
     
     ' Note: External API v2 authentication is handled without a username.
     Set CreateOd2Client = NewOd2Client
-    CreateOd2Client.Initialize targetUrl, targetDb, targetKey
+    With CreateOd2Client
+        .Initialize targetUrl, targetDb, targetKey
+        With .RefWebClient
+            .TimeoutMs = OdTimeoutMs
+            .Insecure = OdInsecure
+        End With
+    End With
 End Function

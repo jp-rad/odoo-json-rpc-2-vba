@@ -68,6 +68,10 @@ End Sub
 ' Public Properties
 ' ------------------------------------------------------------------------------
 
+Public Property Get RefWebClient() As WebClient
+    Set RefWebClient = m_webClient
+End Property
+
 Public Property Get UserAgent() As String
     UserAgent = m_userAgent
 End Property
