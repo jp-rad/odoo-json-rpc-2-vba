@@ -365,7 +365,7 @@ Public Function FetchSearchAndReadRemote( _
     Set colFieldNames = GetFieldNames()
     
     ' Delegate repository search-read call
-    Set colResult = mRepository.SearchReadRecord(mModelName, aDomain, colFieldNames, aOffset, aLimit, aOrder)("result")
+    Set colResult = mRepository.SearchReadRecord(mModelName, aDomain, colFieldNames, aOffset, aLimit, aOrder)
     
     UpsertRecordSet colResult
     FetchSearchAndReadRemote = colResult.Count
@@ -401,7 +401,7 @@ Public Function FetchRecordsRemote() As Long
     End If
     
     ' Delegate repository read call
-    Set colResult = mRepository.ReadRecord(mModelName, colIds, colFieldNames)("result")
+    Set colResult = mRepository.ReadRecord(mModelName, colIds, colFieldNames)
     
     UpsertRecordSet colResult
     FetchRecordsRemote = colResult.Count
