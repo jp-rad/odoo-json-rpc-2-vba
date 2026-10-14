@@ -10,7 +10,9 @@ tests	../tests/SpecOd2Client.bas
 tests	../tests/SpecOd2Repository.bas
 tests	../tests/SpecOdClient.bas
 tests	../tests/SpecOdFilter.bas
+tests	../tests/SpecOdJsonRpc.bas
 tests	../tests/SpecOdRepository.bas
+tests	../tests/SpecOdxRepository.bas
 tests	../tests/SpecRunner.bas
 imports	../imports/VBA-Web/src/WebHelpers.bas
 # class modules

@@ -55,6 +55,13 @@ Private m_Type1 As OdRepository
 Private m_Type2 As Od2Repository
 Private m_SchemaCache As Dictionary
 
+''
+' ------------------------------------------------------------------------------
+' Define default module constant for external ID handling
+' ------------------------------------------------------------------------------
+''
+Private Const DEFAULT_MODULE_EXPORT As String = "__export__"
+
 ' ------------------------------------------------------------------------------
 ' Initialization & Validation
 ' ------------------------------------------------------------------------------
@@ -309,7 +316,14 @@ End Function
 Public Function CreateRecord(aModel As String, aValues As Variant) As Collection
     CheckClientInitialized
     If IsType1 Then
-        Set CreateRecord = m_Type1.CreateRecord(aModel, aValues)("result")
+        Dim resDict As Dictionary
+        Set resDict = m_Type1.CreateRecord(aModel, aValues)
+        If TypeOf resDict("reulst") Is Collection Then
+            Set CreateRecord = resDict("reulst")
+        Else
+            Set CreateRecord = New Collection
+            CreateRecord.Add resDict("result")
+        End If
     ElseIf IsType2 Then
         Set CreateRecord = m_Type2.CreateRecord(aModel, aValues)("result")
     End If
@@ -360,4 +374,177 @@ Public Function GetCurrentUserId() As Long
     ElseIf IsType2 Then
         GetCurrentUserId = m_Type2.GetCurrentUserId()
     End If
+End Function
+
+''
+' ------------------------------------------------------------------------------
+' Odoo External ID Management
+' ------------------------------------------------------------------------------
+''
+
+''
+' Retrieves Model and Record ID from an External ID.
+'
+' @param aExternalId External ID string (e.g., "base.partner_root")
+' @return Dictionary containing "model" and "res_id", or Nothing if not found.
+''
+Public Function GetModelAndIdFromExternalId(ByVal aExternalId As String) As Dictionary
+    Dim splitParts() As String
+    Dim moduleName As String
+    Dim objName As String
+    Dim domain As New Collection
+    Dim cond1 As New Collection, cond2 As New Collection
+    Dim res As Collection
+    Dim resultDict As New Dictionary
+            
+    aExternalId = NormalizeExternalId(aExternalId)
+    splitParts = SplitExternalId(aExternalId)
+    
+    moduleName = splitParts(0)
+    objName = splitParts(1)
+    
+    ' Query ir.model.data using module and name
+    cond1.Add "module": cond1.Add "=": cond1.Add moduleName
+    domain.Add cond1
+    
+    cond2.Add "name": cond2.Add "=": cond2.Add objName
+    domain.Add cond2
+    
+    Dim fieldsList As New Collection
+    fieldsList.Add "model"
+    fieldsList.Add "res_id"
+    
+    Set res = SearchReadRecord("ir.model.data", domain, fieldsList)
+    
+    If res.Count > 0 Then
+        Dim recDict As Dictionary
+        Set recDict = res(1)
+        
+        resultDict.Add "model", CStr(recDict("model"))
+        resultDict.Add "res_id", CLng(recDict("res_id"))
+        Set GetModelAndIdFromExternalId = resultDict
+    End If
+    
+End Function
+
+''
+' Retrieves an existing External ID from Model and Record ID.
+'
+' @param aModel Model name (e.g., "res.partner")
+' @param aResId Database ID (Long)
+' @return External ID string, or empty string if not found.
+''
+Public Function GetExternalIdFromModelAndId(ByVal aModel As String, ByVal aResId As Long) As String
+    Dim domain As New Collection
+    Dim cond1 As New Collection, cond2 As New Collection
+    Dim res As Collection
+    Dim fieldsList As New Collection
+        
+    GetExternalIdFromModelAndId = ""
+    
+    cond1.Add "model": cond1.Add "=": cond1.Add aModel
+    domain.Add cond1
+    
+    cond2.Add "res_id": cond2.Add "=": cond2.Add aResId
+    domain.Add cond2
+    
+    fieldsList.Add "module"
+    fieldsList.Add "name"
+    
+    Set res = SearchReadRecord("ir.model.data", domain, fieldsList)
+    
+    If res.Count > 0 Then
+        Dim recDict As Dictionary
+        Set recDict = res(1)
+        
+        GetExternalIdFromModelAndId = CStr(recDict("module")) & "." & CStr(recDict("name"))
+    End If
+    
+End Function
+
+''
+' Generates an External ID string based on Model and Record ID (pure string generation).
+'
+' @param aModel Model name (e.g., "res.partner")
+' @param aResId Database ID (Long)
+' @param aModuleName Module/Prefix namespace (Default is DEFAULT_MODULE_EXPORT)
+' @return Generated External ID string (e.g., "__export__.res_partner_123")
+''
+Public Function GenerateExternalId(ByVal aModel As String, ByVal aResId As Long, Optional ByVal aModuleName As String = DEFAULT_MODULE_EXPORT) As String
+    Dim sanitizedModel As String
+    
+    If Trim(aModuleName) = "" Then aModuleName = DEFAULT_MODULE_EXPORT
+    aModuleName = Replace(aModuleName, ".", "_")
+    
+    GenerateExternalId = NormalizeExternalId(aModel & "_" & CStr(aResId), aModuleName)
+    
+End Function
+
+''
+' Registers or updates an External ID in ir.model.data for a given Model and Record ID.
+'
+' @param aModel Model name (e.g., "res.partner")
+' @param aResId Database ID (Long)
+' @param aExternalId External ID string to register (will be normalized and split)
+' @return Boolean (True if successful, False otherwise)
+''
+Public Function RegisterExternalId(ByVal aModel As String, ByVal aResId As Long, ByVal aExternalId As String) As Boolean
+    Dim normalizedId As String
+    Dim splitParts() As String
+    Dim moduleName As String
+    Dim objName As String
+    Dim domain As New Collection
+    Dim cond1 As New Collection, cond2 As New Collection
+    Dim res As Collection
+    Dim vals As New Dictionary
+    
+    RegisterExternalId = False
+    
+    ' Normalize the External ID (handles missing dots using default module, replaces invalid characters)
+    normalizedId = NormalizeExternalId(aExternalId)
+    
+    ' Split the normalized External ID into module and object name array
+    splitParts = SplitExternalId(normalizedId)
+    
+    moduleName = splitParts(0)
+    objName = splitParts(1)
+    
+    ' Build domain to check if a record already exists in ir.model.data for this model and res_id
+    cond1.Add "model": cond1.Add "=": cond1.Add aModel
+    domain.Add cond1
+    
+    cond2.Add "res_id": cond2.Add "=": cond2.Add aResId
+    domain.Add cond2
+    
+    Dim fieldsList As New Collection
+    
+    ' Search existing ir.model.data entries
+    Set res = SearchReadRecord("ir.model.data", domain, fieldsList)
+    
+    ' Guard against unexpected duplicate records for the same resource
+    If res.Count > 1 Then
+        Debug.Print "Duplicated: ('" & aModel & "', " & aResId & ")"
+        Debug.Assert False
+        Exit Function
+    End If
+    
+    ' If the external ID mapping already exists, update its module and name
+    If res.Count = 1 Then
+        vals.Add "module", moduleName
+        vals.Add "name", objName
+        
+        RegisterExternalId = WriteRecord("ir.model.data", res, vals)
+        Debug.Assert RegisterExternalId
+        Exit Function
+    End If
+    
+    ' Otherwise, create a new external ID mapping record
+    vals.Add "module", moduleName
+    vals.Add "name", objName
+    vals.Add "model", aModel
+    vals.Add "res_id", aResId
+    Set res = CreateRecord("ir.model.data", vals)
+    RegisterExternalId = res.Count = 1
+    Debug.Assert RegisterExternalId
+    
 End Function
