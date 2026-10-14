@@ -270,3 +270,34 @@ Public Function CreateOd2Client( _
         End With
     End With
 End Function
+
+''
+' Creates and initializes an OdxRepository instance based on the specified API type.
+'
+' @param aType2 Boolean specifying whether to use Type 2 (External JSON-2) API
+' @return OdxRepository Initialized repository facade instance
+''
+Public Function CreateOdxRepository(aType2 As Boolean) As OdxRepository
+    Dim oClient As OdClient
+    Dim oRepo As OdRepository
+    
+    Dim oClient2 As Od2Client
+    Dim oRepo2 As Od2Repository
+
+    Dim configPath As String
+    configPath = ThisWorkbook.FullName & ".secret.txt"
+    
+    Set CreateOdxRepository = NewOdxRepository
+    
+    If aType2 Then
+        Set oClient2 = OdxFactory.CreateOd2Client(aConfigPath:=configPath)
+        Set oRepo2 = NewOd2Repository
+        oRepo2.Initialize oClient2
+        CreateOdxRepository.Initialize oRepo2
+    Else
+        Set oClient = OdxFactory.CreateOdClient(aConfigPath:=configPath)
+        Set oRepo = NewOdRepository
+        oRepo.Initialize oClient
+        CreateOdxRepository.Initialize oRepo
+    End If
+End Function

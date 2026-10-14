@@ -40,6 +40,8 @@ Public Sub RunSpecsAll()
         
     ' Register specs from external spec modules
     SpecOdFilter.RegisterSpecs Suite
+    SpecJsonUtils.RegisterSpecs Suite
+    SpecOdJsonRpc.RegisterSpecs Suite
 
     SpecOdClient.RegisterSpecs Suite
     SpecOdRepository.RegisterSpecs Suite
@@ -47,7 +49,7 @@ Public Sub RunSpecsAll()
     SpecOd2Client.RegisterSpecs Suite
     SpecOd2Repository.RegisterSpecs Suite
     
-    SpecJsonUtils.RegisterSpecs Suite
+    SpecOdxRepository.RegisterSpecs Suite
     
     PrintSummary Suite
 End Sub

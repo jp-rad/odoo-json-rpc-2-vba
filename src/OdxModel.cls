@@ -45,16 +45,16 @@ Option Explicit
 ' ==============================================================================
 ''
 
-Private Const CBIT_DSP      As Long = &H100000  ' bit20 - display name, not model's field
-Private Const CBIT_M2O      As Long = &H200000  ' bit21 - many2one
-Private Const CBIT_O2M      As Long = &H400000  ' bit22 - one2many
-Private Const CBIT_M2M      As Long = &H800000  ' bit23 - many2many
-Private Const CBIT_NULLABLE As Long = FieldAttributeEnum.adFldMayBeNull ' Enable NULLs via adFldMayBeNull even for Odoo's required fields.
+Private Const CBIT_NON_MODEL    As Long = &H100000  ' bit20 - non-model property (e.g., display name, external id)
+Private Const CBIT_M2O          As Long = &H200000  ' bit21 - many2one
+Private Const CBIT_O2M          As Long = &H400000  ' bit22 - one2many
+Private Const CBIT_M2M          As Long = &H800000  ' bit23 - many2many
+Private Const CBIT_NULLABLE     As Long = FieldAttributeEnum.adFldMayBeNull ' Enable NULLs via adFldMayBeNull even for Odoo's required fields.
 
 Private Const CATTR_PK_ID        As Long = FieldAttributeEnum.adFldKeyColumn
 Private Const CATTR_FIELD        As Long = FieldAttributeEnum.adFldUpdatable _
                                            Or FieldAttributeEnum.adFldIsNullable   ' Force adFldIsNullable to allow NULLs in the Recordset regardless of DB constraints.
-Private Const CATTR_DISPLAY_NAME As Long = CATTR_FIELD Or CBIT_DSP
+Private Const CATTR_NON_MODEL As Long = CATTR_FIELD Or CBIT_NON_MODEL
 Private Const CATTR_M2O          As Long = CATTR_FIELD Or CBIT_M2O
 Private Const CATTR_O2M          As Long = CATTR_FIELD Or CBIT_O2M
 Private Const CATTR_M2M          As Long = CATTR_FIELD Or CBIT_M2M
@@ -66,8 +66,8 @@ Private Const CODOO_ATTR_RELATION As String = "relation"
 Private Const CODOO_ATTR_FKEY     As String = "relation_field"   ' foreign key
 Private Const CODOO_ATTR_REQUIRED As String = "required"
 
-Private Const CFIELD_SEARCHED As String = "__searched__"
 Private Const CDISPLAY_NAME As String = "_display_name_"
+Private Const CEXTERNAL_ID As String = "external_id"
 
 ' Odoo IDs are always positive integers, so we use -1 as an impossible ID.
 ' Filtering by this value guarantees the Recordset becomes empty.
@@ -80,6 +80,8 @@ Private mModelName As String
 Private mRelations As Dictionary    ' key: relation field name, value: OdxModel
 Private mFKeyFieldName As String    ' for one2many: foreign key field name
 Private mRelationMap As Collection  ' for many2many: key = CStr(parent id), value = collection of IDs
+
+Private mExternalIdFieldName As String
 
 Private Enum odxModelType
     mtBase
@@ -100,6 +102,10 @@ End Property
 
 Public Property Get IsMany2Many() As Boolean
     IsMany2Many = mModelType = mtMany2Many
+End Property
+
+Public Property Get ExternalIdFieldName() As String
+    ExternalIdFieldName = mExternalIdFieldName
 End Property
 
 ''
@@ -172,6 +178,24 @@ Public Function AddField(aFieldName As String) As OdxModel
         Set AddField = oRelation
     End If
 End Function
+
+''
+' Adds an external ID field to the local Recordset as a non-model property.
+' Raises an exception if the external ID field has already been added.
+'
+' @param aFieldName Optional field name for the external ID (Default: CEXTERNAL_ID)
+' @throws ERR_API_EXECUTION if the external ID field already exists.
+''
+Public Sub AddExternalIdField(Optional aFieldName As String = CEXTERNAL_ID)
+    ' Check if the external ID field has already been added
+    If mExternalIdFieldName <> "" Then
+        Err.Raise ERR_API_EXECUTION, "AddExternalIdField", "External ID field has already been added: " & mExternalIdFieldName
+    End If
+    
+    ' Append a non-model external ID field to the local Recordset structure
+    mRs.Fields.Append Name:=aFieldName, Type:=adVarWChar, DefinedSize:=-1, Attrib:=CATTR_NON_MODEL
+    mExternalIdFieldName = aFieldName
+End Sub
 
 ''
 ' Clears all local records and resets relational data.
@@ -270,6 +294,9 @@ Private Sub UpsertRecordSet(colResult As Collection)
         
         For Each fld In mRs.Fields
             If Not IsOdooField(fld) Then
+                If fld.Name = mExternalIdFieldName Then
+                    fld.Value = mRepository.GetExternalIdFromModelAndId(mModelName, nId)
+                End If
                 GoTo CONTINUE_FOR_EACH
             End If
             If fld.Type = adBoolean Then
@@ -517,7 +544,7 @@ ExitProc:
 End Function
 
 Private Function IsOdooField(fld As ADODB.Field) As Boolean
-    IsOdooField = 0 = (fld.attributes And CBIT_DSP)
+    IsOdooField = 0 = (fld.attributes And CBIT_NON_MODEL)
 End Function
 
 Private Function IsOdooMany2OneField(fld As ADODB.Field) As Boolean
@@ -579,7 +606,7 @@ Private Function AddRecordsetField(rs As ADODB.Recordset, dicModelField As Dicti
     Select Case sFieldType
         Case "many2one"
             rs.Fields.Append Name:=sFieldName, Type:=adInteger, Attrib:=CATTR_M2O Or attrOdooNullable
-            rs.Fields.Append Name:=FormatDisplayName(sFieldName), Type:=adVarWChar, DefinedSize:=-1, Attrib:=CATTR_DISPLAY_NAME
+            rs.Fields.Append Name:=FormatDisplayName(sFieldName), Type:=adVarWChar, DefinedSize:=-1, Attrib:=CATTR_NON_MODEL
 
         Case "one2many"
             rs.Fields.Append Name:=sFieldName, Type:=adLongVarWChar, DefinedSize:=-1, Attrib:=CATTR_O2M Or attrOdooNullable
