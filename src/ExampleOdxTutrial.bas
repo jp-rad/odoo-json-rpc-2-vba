@@ -48,37 +48,6 @@ Public Sub DoTutrialOdxModel2()
 End Sub
 
 ''
-' Creates and initializes an OdxRepository instance based on the specified API type.
-'
-' @param aType2 Boolean specifying whether to use Type 2 (External JSON-2) API
-' @return OdxRepository Initialized repository facade instance
-''
-Private Function CreateOdxRepository(aType2 As Boolean) As OdxRepository
-    Dim oClient As OdClient
-    Dim oRepo As OdRepository
-    
-    Dim oClient2 As Od2Client
-    Dim oRepo2 As Od2Repository
-
-    Dim configPath As String
-    configPath = ThisWorkbook.FullName & ".secret.txt"
-    
-    Set CreateOdxRepository = NewOdxRepository
-    
-    If aType2 Then
-        Set oClient2 = OdxFactory.CreateOd2Client(aConfigPath:=configPath)
-        Set oRepo2 = NewOd2Repository
-        oRepo2.Initialize oClient2
-        CreateOdxRepository.Initialize oRepo2
-    Else
-        Set oClient = OdxFactory.CreateOdClient(aConfigPath:=configPath)
-        Set oRepo = NewOdRepository
-        oRepo.Initialize oClient
-        CreateOdxRepository.Initialize oRepo
-    End If
-End Function
-
-''
 ' Executes the OdxModel tutorial workflow, generating schemas and data sheets.
 '
 ' @param oRepo Initialized OdxRepository instance
@@ -132,6 +101,8 @@ Private Sub ExecuteTutrial(oRepo As OdxRepository)
         DebugRange rng, .ModelName
         DebugRangeSchema rng, .ModelName, oRepo.ModelSchema(.ModelName)
         
+        .AddExternalIdField ' (option) External ID
+        
         .AddField "name"
         .AddField "is_company"
         .AddField "is_public"
@@ -162,6 +133,7 @@ Private Sub ExecuteTutrial(oRepo As OdxRepository)
             
             .AddField "layout_background"
 
+            .AddExternalIdField ' (option) External ID
         End With
         
         With .AddField("child_ids")     ' one2many
@@ -172,6 +144,8 @@ Private Sub ExecuteTutrial(oRepo As OdxRepository)
             Debug.Assert .IsOne2Many
             DebugRangeSchema rng, .ModelName, oRepo.ModelSchema(.ModelName)
             
+            .AddExternalIdField "custom_external_id" ' (option) External ID
+        
             .AddField "name"
         End With
                 

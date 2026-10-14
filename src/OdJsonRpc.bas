@@ -41,6 +41,7 @@ Option Explicit
 ' ------------------------------------------------------------------------------
 ' Define common error constants for Odoo VBA Client project
 ' ------------------------------------------------------------------------------
+''
 Public Const ERR_UNINITIALIZED         As Long = vbObjectError + 1001
 Public Const ERR_AUTHENTICATION_FAILED As Long = vbObjectError + 1002
 Public Const ERR_HTTP_ERROR            As Long = vbObjectError + 1003
@@ -48,6 +49,14 @@ Public Const ERR_INVALID_RESPONSE      As Long = vbObjectError + 1004
 Public Const ERR_EMPTY_RESPONSE        As Long = vbObjectError + 1005
 Public Const ERR_ODOO_RPC_ERROR        As Long = vbObjectError + 1006
 Public Const ERR_API_EXECUTION         As Long = vbObjectError + 1007
+
+''
+' ------------------------------------------------------------------------------
+' Define default module constant for external ID handling
+' ------------------------------------------------------------------------------
+''
+Private Const DEFAULT_MODULE_IMPORT As String = "__import__"
+
 
 ''
 ' ------------------------------------------------------------------------------
@@ -311,4 +320,96 @@ End Function
 ''
 Public Function NewDict() As Dictionary
     Set NewDict = New Dictionary
+End Function
+
+''
+' ------------------------------------------------------------------------------
+' Odoo External ID Management
+' ------------------------------------------------------------------------------
+''
+
+''
+' Splits an External ID into module and object name and returns them as a String array.
+'
+' @param aExternalId External ID string (e.g., "base.partner_root")
+' @return String array where index 0 is "module" and index 1 is "name"
+' @throws ERR_API_EXECUTION if the external ID is empty, invalid, or does not contain a dot.
+''
+Public Function SplitExternalId(ByVal aExternalId As String) As String()
+    Dim parts() As String
+    
+    aExternalId = Trim(aExternalId)
+    
+    ' Check if the input is empty
+    If aExternalId = "" Then
+        Err.Raise ERR_API_EXECUTION, "SplitExternalId", "External ID cannot be empty."
+    End If
+    
+    ' Check if the dot exists in the External ID
+    If InStr(aExternalId, ".") > 0 Then
+        parts = Split(aExternalId, ".", 2)
+        
+        ' Trim both parts first
+        parts(0) = Trim(parts(0))
+        parts(1) = Trim(parts(1))
+        
+        ' Guard against empty module or object names (e.g., ".partner_root" or "base.")
+        If parts(0) = "" Or parts(1) = "" Then
+            Err.Raise ERR_API_EXECUTION, "SplitExternalId", "Invalid External ID format: " & aExternalId
+        End If
+    Else
+        ' Raise an exception if the dot is missing
+        Err.Raise ERR_API_EXECUTION, "SplitExternalId", "External ID must contain a dot (module.name): " & aExternalId
+    End If
+    
+    SplitExternalId = parts
+End Function
+
+''
+' Normalizes an External ID string.
+' If the dot is missing, it supplements the default module name before calling SplitExternalId.
+'
+' @param aExternalId Raw External ID string
+' @param aDefaultModule Optional default module name when dot is missing (Default: DEFAULT_MODULE_IMPORT)
+' @return Normalized External ID string
+' @throws ERR_API_EXECUTION if the external ID is empty, or if the object name is missing (e.g., "base.").
+''
+Public Function NormalizeExternalId(ByVal aExternalId As String, Optional ByVal aDefaultModule As String = DEFAULT_MODULE_IMPORT) As String
+    Dim parts() As String
+    Dim moduleName As String
+    Dim objName As String
+    
+    aExternalId = Trim(aExternalId)
+    
+    ' Check if the input is empty
+    If aExternalId = "" Then
+        Err.Raise ERR_API_EXECUTION, "NormalizeExternalId", "External ID cannot be empty."
+    End If
+        
+    ' Supplement the module name with default module if dot is missing
+    If InStr(aExternalId, ".") = 0 Then
+        If Trim(aDefaultModule) = "" Then aDefaultModule = DEFAULT_MODULE_IMPORT
+        aDefaultModule = Replace(aDefaultModule, " ", "_")
+        aDefaultModule = Replace(aDefaultModule, ".", "_")
+        aExternalId = Trim(aDefaultModule) & "." & aExternalId
+    End If
+    
+    ' Split the External ID using the existing function (returns String array)
+    parts = SplitExternalId(aExternalId)
+    
+    moduleName = Trim(parts(0))
+    objName = Trim(parts(1))
+    
+    ' Guard against empty object names (e.g., "base." or just a dot)
+    If objName = "" Then
+        Err.Raise ERR_API_EXECUTION, "NormalizeExternalId", "Object name cannot be empty in External ID: " & aExternalId
+    End If
+    
+    ' Clean up spaces and replace extra dots in object name with underscores
+    moduleName = Replace(moduleName, " ", "_")
+    objName = Replace(objName, " ", "_")
+    objName = Replace(objName, ".", "_")
+    
+    ' Rebuild and return the normalized External ID
+    NormalizeExternalId = moduleName & "." & objName
 End Function
