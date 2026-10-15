@@ -55,13 +55,6 @@ Private m_Type1 As OdRepository
 Private m_Type2 As Od2Repository
 Private m_SchemaCache As Dictionary
 
-''
-' ------------------------------------------------------------------------------
-' Define default module constant for external ID handling
-' ------------------------------------------------------------------------------
-''
-Private Const DEFAULT_MODULE_EXPORT As String = "__export__"
-
 ' ------------------------------------------------------------------------------
 ' Initialization & Validation
 ' ------------------------------------------------------------------------------
@@ -385,7 +378,7 @@ End Function
 ''
 ' Retrieves Model and Record ID from an External ID.
 '
-' @param aExternalId External ID string (e.g., "base.partner_root")
+' @param aExternalId External ID string (e.g., "base_module.partner_root_1")
 ' @return Dictionary containing "model" and "res_id", or Nothing if not found.
 ''
 Public Function GetModelAndIdFromExternalId(ByVal aExternalId As String) As Dictionary
@@ -396,8 +389,7 @@ Public Function GetModelAndIdFromExternalId(ByVal aExternalId As String) As Dict
     Dim cond1 As New Collection, cond2 As New Collection
     Dim res As Collection
     Dim resultDict As New Dictionary
-            
-    aExternalId = NormalizeExternalId(aExternalId)
+    
     splitParts = SplitExternalId(aExternalId)
     
     moduleName = splitParts(0)
@@ -463,88 +455,51 @@ Public Function GetExternalIdFromModelAndId(ByVal aModel As String, ByVal aResId
 End Function
 
 ''
-' Generates an External ID string based on Model and Record ID (pure string generation).
+' Registers a new External ID in ir.model.data for a given Model and Record ID (Insert Only).
+' - If the Model and Record ID (model + res_id) already has a mapping, an exception is thrown.
 '
 ' @param aModel Model name (e.g., "res.partner")
 ' @param aResId Database ID (Long)
-' @param aModuleName Module/Prefix namespace (Default is DEFAULT_MODULE_EXPORT)
-' @return Generated External ID string (e.g., "__export__.res_partner_123")
-''
-Public Function GenerateExternalId(ByVal aModel As String, ByVal aResId As Long, Optional ByVal aModuleName As String = DEFAULT_MODULE_EXPORT) As String
-    Dim sanitizedModel As String
-    
-    If Trim(aModuleName) = "" Then aModuleName = DEFAULT_MODULE_EXPORT
-    aModuleName = Replace(aModuleName, ".", "_")
-    
-    GenerateExternalId = NormalizeExternalId(aModel & "_" & CStr(aResId), aModuleName)
-    
-End Function
-
-''
-' Registers or updates an External ID in ir.model.data for a given Model and Record ID.
-'
-' @param aModel Model name (e.g., "res.partner")
-' @param aResId Database ID (Long)
-' @param aExternalId External ID string to register (will be normalized and split)
-' @return Boolean (True if successful, False otherwise)
+' @param aExternalId External ID string to register (e.g., "base_module.partner_root_1")
+' @return Boolean True on successful registration
+' @throws ERR_API_EXECUTION if already exists
 ''
 Public Function RegisterExternalId(ByVal aModel As String, ByVal aResId As Long, ByVal aExternalId As String) As Boolean
-    Dim normalizedId As String
-    Dim splitParts() As String
-    Dim moduleName As String
-    Dim objName As String
+    Dim fieldsList As New Collection
     Dim domain As New Collection
     Dim cond1 As New Collection, cond2 As New Collection
     Dim res As Collection
+    Dim splitParts() As String
+    Dim moduleName As String
+    Dim objName As String
     Dim vals As New Dictionary
-    
-    RegisterExternalId = False
-    
-    ' Normalize the External ID (handles missing dots using default module, replaces invalid characters)
-    normalizedId = NormalizeExternalId(aExternalId)
-    
-    ' Split the normalized External ID into module and object name array
-    splitParts = SplitExternalId(normalizedId)
-    
-    moduleName = splitParts(0)
-    objName = splitParts(1)
-    
-    ' Build domain to check if a record already exists in ir.model.data for this model and res_id
+        
     cond1.Add "model": cond1.Add "=": cond1.Add aModel
     domain.Add cond1
     
     cond2.Add "res_id": cond2.Add "=": cond2.Add aResId
     domain.Add cond2
     
-    Dim fieldsList As New Collection
+    fieldsList.Add "id"
     
-    ' Search existing ir.model.data entries
     Set res = SearchReadRecord("ir.model.data", domain, fieldsList)
     
-    ' Guard against unexpected duplicate records for the same resource
-    If res.Count > 1 Then
-        Debug.Print "Duplicated: ('" & aModel & "', " & aResId & ")"
-        Debug.Assert False
-        Exit Function
+    ' Raise an exception if a mapping for (model, res_id) already exists
+    If res.Count > 0 Then
+        Err.Raise ERR_API_EXECUTION, "OdxRepository", "Mapping already exists: Model '" & aModel & "' with ID " & aResId & " is already registered with an External ID."
     End If
     
-    ' If the external ID mapping already exists, update its module and name
-    If res.Count = 1 Then
-        vals.Add "module", moduleName
-        vals.Add "name", objName
+    splitParts = SplitExternalId(aExternalId)
+    moduleName = splitParts(0)
+    objName = splitParts(1)
         
-        RegisterExternalId = WriteRecord("ir.model.data", res, vals)
-        Debug.Assert RegisterExternalId
-        Exit Function
-    End If
-    
-    ' Otherwise, create a new external ID mapping record
     vals.Add "module", moduleName
     vals.Add "name", objName
     vals.Add "model", aModel
     vals.Add "res_id", aResId
-    Set res = CreateRecord("ir.model.data", vals)
-    RegisterExternalId = res.Count = 1
-    Debug.Assert RegisterExternalId
     
+    Dim createdRes As Collection
+    Set createdRes = CreateRecord("ir.model.data", vals)
+    
+    RegisterExternalId = True
 End Function

@@ -331,7 +331,7 @@ End Function
 ''
 ' Splits an External ID into module and object name and returns them as a String array.
 '
-' @param aExternalId External ID string (e.g., "base.partner_root")
+' @param aExternalId External ID string (e.g., "base_module.partner_root_1")
 ' @return String array where index 0 is "module" and index 1 is "name"
 ' @throws ERR_API_EXECUTION if the external ID is empty, invalid, or does not contain a dot.
 ''
@@ -340,27 +340,18 @@ Public Function SplitExternalId(ByVal aExternalId As String) As String()
     
     aExternalId = Trim(aExternalId)
     
-    ' Check if the input is empty
     If aExternalId = "" Then
         Err.Raise ERR_API_EXECUTION, "SplitExternalId", "External ID cannot be empty."
     End If
     
-    ' Check if the dot exists in the External ID
-    If InStr(aExternalId, ".") > 0 Then
-        parts = Split(aExternalId, ".", 2)
-        
-        ' Trim both parts first
-        parts(0) = Trim(parts(0))
-        parts(1) = Trim(parts(1))
-        
-        ' Guard against empty module or object names (e.g., ".partner_root" or "base.")
-        If parts(0) = "" Or parts(1) = "" Then
-            Err.Raise ERR_API_EXECUTION, "SplitExternalId", "Invalid External ID format: " & aExternalId
-        End If
-    Else
-        ' Raise an exception if the dot is missing
-        Err.Raise ERR_API_EXECUTION, "SplitExternalId", "External ID must contain a dot (module.name): " & aExternalId
+    If InStr(aExternalId, ".") = 0 Then
+        Err.Raise ERR_API_EXECUTION, "SplitExternalId", "External ID must contain a dot (module.name)."
     End If
+    
+    parts = Split(aExternalId, ".", 2)
+           
+    parts(0) = Trim(parts(0))
+    parts(1) = Trim(parts(1))
     
     SplitExternalId = parts
 End Function
@@ -388,10 +379,7 @@ Public Function NormalizeExternalId(ByVal aExternalId As String, Optional ByVal 
         
     ' Supplement the module name with default module if dot is missing
     If InStr(aExternalId, ".") = 0 Then
-        If Trim(aDefaultModule) = "" Then aDefaultModule = DEFAULT_MODULE_IMPORT
-        aDefaultModule = Replace(aDefaultModule, " ", "_")
-        aDefaultModule = Replace(aDefaultModule, ".", "_")
-        aExternalId = Trim(aDefaultModule) & "." & aExternalId
+        aExternalId = "." & aExternalId
     End If
     
     ' Split the External ID using the existing function (returns String array)
@@ -400,11 +388,16 @@ Public Function NormalizeExternalId(ByVal aExternalId As String, Optional ByVal 
     moduleName = Trim(parts(0))
     objName = Trim(parts(1))
     
-    ' Guard against empty object names (e.g., "base." or just a dot)
-    If objName = "" Then
-        Err.Raise ERR_API_EXECUTION, "NormalizeExternalId", "Object name cannot be empty in External ID: " & aExternalId
+    If moduleName = "" Then
+        If Trim(aDefaultModule) = "" Then aDefaultModule = DEFAULT_MODULE_IMPORT
+        moduleName = aDefaultModule
     End If
     
+    ' Guard against empty object names (e.g., "base." or just a dot)
+    If objName = "" Then
+        Err.Raise ERR_API_EXECUTION, "NormalizeExternalId", "Object name cannot be empty in External ID (module.name)."
+    End If
+        
     ' Clean up spaces and replace extra dots in object name with underscores
     moduleName = Replace(moduleName, " ", "_")
     objName = Replace(objName, " ", "_")
