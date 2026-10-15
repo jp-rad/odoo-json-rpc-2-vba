@@ -44,6 +44,8 @@ Public Sub RegisterSpecs(Suite As TestSuite)
     SpecOdxRepositoryExternalIdMapping Suite, True
     SpecRegisterExternalIdLifecycle Suite, False
     SpecRegisterExternalIdLifecycle Suite, True
+    SpecUpsertRecordsByExternalId Suite, False
+    SpecUpsertRecordsByExternalId Suite, True
 End Sub
 
 ' ------------------------------------------------------------------------------
@@ -199,6 +201,93 @@ Private Sub SpecRegisterExternalIdLifecycle(Suite As TestSuite, aType2 As Boolea
         Else
             Test.IsUndefined resolvedAfterDelete
         End If
+        
+        .IsEqual Test.Result, TestResultType.Pass
+    End With
+End Sub
+
+''
+' Tests for UpsertRecordsByExternalId (Create and Update operations based on External ID).
+'
+' @param Suite TestSuite instance
+' @param aType2 Boolean flag indicating whether to use Type2 repository
+''
+Private Sub SpecUpsertRecordsByExternalId(Suite As TestSuite, aType2 As Boolean)
+    Dim Tests As New TestSuite
+    Dim Test As TestCase
+    Dim repo As OdxRepository
+    
+    Set repo = CreateOdxRepository(aType2)
+    
+    With Suite.Test("TestUpsertRecordsByExternalId - Upsert and Status Verification")
+        Set Test = Tests.Test("should successfully create and update records via UpsertRecordsByExternalId")
+        
+        Dim testModel As String
+        Dim testExternalId As String
+        Dim mainDict As New Dictionary
+        Dim partnerVals As New Dictionary
+        Dim resultRes As Dictionary
+        Dim fieldsToRead As New Collection
+        Dim partnerRecords As Collection
+        
+        testModel = "res.partner"
+        testExternalId = "SpecOdxRepository.test_upsert_partner_1"
+        fieldsToRead.Add "name"
+        
+        ' ----------------------------------------------------------------------
+        ' 0. Pre-cleanup (just in case previous test left orphaned record)
+        ' ----------------------------------------------------------------------
+        Dim existingMap As Dictionary
+        Set existingMap = repo.GetModelAndIdFromExternalId(testExternalId)
+        If Not existingMap Is Nothing Then
+            repo.UnlinkRecord testModel, existingMap("res_id")
+        End If
+        
+        ' ----------------------------------------------------------------------
+        ' 1. Test: Create action via Upsert
+        ' ----------------------------------------------------------------------
+        partnerVals.Add "name", "Upsert Initial Name"
+        mainDict.Add testExternalId, partnerVals
+        
+        Set resultRes = repo.UpsertRecordsByExternalId(testModel, mainDict)
+        
+        Test.NotUndefined resultRes
+        Test.IsEqual resultRes.Exists(testExternalId), True
+        Test.IsEqual CStr(resultRes(testExternalId)("action")), "created"
+        
+        Dim createdId As Long
+        createdId = CLng(resultRes(testExternalId)("id"))
+        Test.NotEqual createdId, 0
+        
+        ' Verify the created record name
+        Set partnerRecords = repo.ReadRecord(testModel, createdId, fieldsToRead)
+        Test.IsEqual CStr(partnerRecords(1)("name")), "Upsert Initial Name"
+        
+        ' ----------------------------------------------------------------------
+        ' 2. Test: Update action via Upsert (using the same external ID)
+        ' ----------------------------------------------------------------------
+        Dim updateDict As New Dictionary
+        Dim updateVals As New Dictionary
+        updateVals.Add "name", "Upsert Updated Name"
+        updateDict.Add testExternalId, updateVals
+        
+        Set resultRes = repo.UpsertRecordsByExternalId(testModel, updateDict)
+        
+        Test.NotUndefined resultRes
+        Test.IsEqual resultRes.Exists(testExternalId), True
+        Test.IsEqual CStr(resultRes(testExternalId)("action")), "updated"
+        Test.IsEqual CLng(resultRes(testExternalId)("id")), createdId
+        
+        ' Verify the updated record name
+        Set partnerRecords = repo.ReadRecord(testModel, createdId, fieldsToRead)
+        Test.IsEqual CStr(partnerRecords(1)("name")), "Upsert Updated Name"
+        
+        ' ----------------------------------------------------------------------
+        ' 3. Cleanup: Delete the test partner record
+        ' ----------------------------------------------------------------------
+        Dim isDeleted As Boolean
+        isDeleted = repo.UnlinkRecord(testModel, createdId)
+        Test.IsEqual isDeleted, True
         
         .IsEqual Test.Result, TestResultType.Pass
     End With
