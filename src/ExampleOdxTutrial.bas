@@ -159,6 +159,8 @@ Private Sub ExecuteTutrial(oRepo As OdxRepository)
             
             .AddField "name"
         End With
+        
+        .AddLocalField "local_comments", adVarChar, -1  ' non-model field
     End With
 
     ' ==================

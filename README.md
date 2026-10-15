@@ -49,6 +49,9 @@ By abstracting low-level network communication and mapping remote Odoo models di
 | `WriteRecord(aModel, aRecordId, aValues)` | Updates an existing record (or collection of records) by ID with new key-value pairs. |
 | `UnlinkRecord(aModel, aRecordId)` | Deletes specified record(s) by ID. |
 | `GetCurrentUserId()` | Retrieves the currently authenticated user's ID. |
+| `GetModelAndIdFromExternalId()` | Retrieves Model and Record ID from an External ID. |
+| `GetExternalIdFromModelAndId()` | Retrieves an existing External ID from Model and Record ID. |
+| `RegisterExternalId()` | Registers or updates an External ID in ir.model.data for a given Model and Record ID. |
 
 
 ## API Version Support & Repository Creation
@@ -158,6 +161,7 @@ Sub DoRelationsTraversalOdxModel()
         ' --- Many2one: company_id -> res.company ---
         With .AddField("company_id")
             Debug.Assert .IsMany2One
+            .AddExternalIdField ' External ID
             .AddField "name"
             .AddField "city"
             
@@ -194,11 +198,14 @@ Sub DoRelationsTraversalOdxModel()
         Dim oCompanyModel As OdxModel
         Set oCompanyModel = oModel.GetRelatedModel("company_id")
         If Not oCompanyModel Is Nothing Then
-            If oCompanyModel.Recordset.RecordCount = 1 Then
-                Debug.Print "  -> Company Name: " & oCompanyModel.Recordset.Fields("name").Value
-            Else
-                Debug.Print "  -> Company Count: " & oCompanyModel.Recordset.RecordCount
-            End If
+            With oCompanyModel.Recordset
+                If .RecordCount = 1 Then
+                    Debug.Print "  -> Company Name: " & .Fields("name").Value & " [" & .Fields("external_id").Value & "]"
+                Else
+                    Debug.Print "  -> Company Count: " & .RecordCount
+                End If
+                Debug.Assert .RecordCount <= 1
+            End With
         End If
         
         Dim oChildModel As OdxModel
