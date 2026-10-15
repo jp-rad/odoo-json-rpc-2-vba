@@ -503,3 +503,105 @@ Public Function RegisterExternalId(ByVal aModel As String, ByVal aResId As Long,
     
     RegisterExternalId = True
 End Function
+
+''
+' Upserts records for a given model based on External IDs ("module.name") without throwing exceptions on row-level errors.
+' - If successful, flags as "created" or "updated" with its record ID.
+' - If an error occurs for a specific record, it catches the error and flags as "error" with the error message.
+' - Relies on VBA runtime error handling for invalid or Nothing inputs.
+'
+' @param aModel Model name (e.g., "res.partner")
+' @param aValuesDict Nested Dictionary where Key = External ID ("module.name"), Value = Dictionary of field values
+' @return Dictionary Key = External ID, Value = Dictionary containing "id" (Long), "action" (String: "created", "updated", or "error"), and optional "error_message"
+''
+Public Function UpsertRecordsByExternalId(ByVal aModel As String, ByVal aValuesDict As Dictionary) As Dictionary
+    Dim vKey As Variant
+    Dim externalId As String
+    Dim fieldValues As Dictionary
+    Dim modelAndId As Dictionary
+    Dim resId As Long
+    Dim writeSuccess As Boolean
+    Dim createdRes As Collection
+    Dim regSuccess As Boolean
+    
+    Dim resultDict As New Dictionary
+    Dim recordInfo As Dictionary
+    
+    ' Iterate through each external_id and its corresponding field values
+    ' (If aValuesDict is Nothing, VBA will raise a runtime error here automatically)
+    For Each vKey In aValuesDict.Keys
+        externalId = CStr(vKey)
+        Set fieldValues = aValuesDict(externalId)
+        
+        Set recordInfo = New Dictionary
+        
+        ' Enable local error handling for each iteration so one failure doesn't stop the whole loop
+        On Error Resume Next
+        Err.Clear
+        
+        ' 1. Check if the External ID already exists
+        Set modelAndId = GetModelAndIdFromExternalId(externalId)
+        If Err.Number <> 0 Then GoTo RecordError
+        
+        If Not modelAndId Is Nothing Then
+            ' ------------------------------------------------------------------
+            ' Update Existing Record
+            ' ------------------------------------------------------------------
+            If CStr(modelAndId("model")) <> aModel Then
+                Err.Raise vbObjectError + 1, "OdxRepository", "Model mismatch: Expected " & aModel & ", found " & modelAndId("model")
+            End If
+            If Err.Number <> 0 Then GoTo RecordError
+            
+            resId = CLng(modelAndId("res_id"))
+            
+            writeSuccess = WriteRecord(aModel, resId, fieldValues)
+            If Err.Number <> 0 Or Not writeSuccess Then
+                If Err.Number = 0 Then Err.Raise vbObjectError + 2, "OdxRepository", "Failed to update record."
+                GoTo RecordError
+            End If
+            
+            recordInfo.Add "id", resId
+            recordInfo.Add "action", "updated"
+            
+        Else
+            ' ------------------------------------------------------------------
+            ' Create New Record and Register External ID
+            ' ------------------------------------------------------------------
+            Set createdRes = CreateRecord(aModel, fieldValues)
+            If Err.Number <> 0 Or createdRes Is Nothing Or createdRes.Count = 0 Then
+                If Err.Number = 0 Then Err.Raise vbObjectError + 3, "OdxRepository", "Failed to create record."
+                GoTo RecordError
+            End If
+            
+            resId = CLng(createdRes(1))
+            
+            regSuccess = RegisterExternalId(aModel, resId, externalId)
+            If Err.Number <> 0 Or Not regSuccess Then
+                If Err.Number = 0 Then Err.Raise vbObjectError + 4, "OdxRepository", "Failed to register External ID."
+                GoTo RecordError
+            End If
+            
+            recordInfo.Add "id", resId
+            recordInfo.Add "action", "created"
+        End If
+        
+        ' Successfully processed this entry
+        GoTo NextRecord
+
+RecordError:
+        ' Catch the error for this specific external_id without throwing an exception
+        recordInfo.RemoveAll
+        recordInfo.Add "id", 0
+        recordInfo.Add "action", "error"
+        recordInfo.Add "error_message", Err.Description
+        Err.Clear
+
+NextRecord:
+        On Error GoTo 0 ' Reset error handling for the next iteration
+        
+        ' Add to the final result dictionary
+        resultDict.Add externalId, recordInfo
+    Next vKey
+    
+    Set UpsertRecordsByExternalId = resultDict
+End Function
