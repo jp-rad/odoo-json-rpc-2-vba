@@ -44,8 +44,10 @@ Public Sub RegisterSpecs(Suite As TestSuite)
     SpecOdxRepositoryExternalIdMapping Suite, True
     SpecRegisterExternalIdLifecycle Suite, False
     SpecRegisterExternalIdLifecycle Suite, True
-    SpecUpsertRecordsByExternalId Suite, False
-    SpecUpsertRecordsByExternalId Suite, True
+    SpecUpsertRecordByExternalId Suite, False
+    SpecUpsertRecordByExternalId Suite, True
+    SpecUnlinkRecordByExternalId Suite, False
+    SpecUnlinkRecordByExternalId Suite, True
 End Sub
 
 ' ------------------------------------------------------------------------------
@@ -207,20 +209,20 @@ Private Sub SpecRegisterExternalIdLifecycle(Suite As TestSuite, aType2 As Boolea
 End Sub
 
 ''
-' Tests for UpsertRecordsByExternalId (Create and Update operations based on External ID).
+' Tests for UpsertRecordByExternalId (Create and Update operations based on External ID).
 '
 ' @param Suite TestSuite instance
 ' @param aType2 Boolean flag indicating whether to use Type2 repository
 ''
-Private Sub SpecUpsertRecordsByExternalId(Suite As TestSuite, aType2 As Boolean)
+Private Sub SpecUpsertRecordByExternalId(Suite As TestSuite, aType2 As Boolean)
     Dim Tests As New TestSuite
     Dim Test As TestCase
     Dim repo As OdxRepository
     
     Set repo = CreateOdxRepository(aType2)
     
-    With Suite.Test("TestUpsertRecordsByExternalId - Upsert and Status Verification")
-        Set Test = Tests.Test("should successfully create and update records via UpsertRecordsByExternalId")
+    With Suite.Test("TestUpsertRecordByExternalId - Upsert and Status Verification")
+        Set Test = Tests.Test("should successfully create and update records via UpsertRecordByExternalId")
         
         Dim testModel As String
         Dim testExternalId As String
@@ -249,7 +251,7 @@ Private Sub SpecUpsertRecordsByExternalId(Suite As TestSuite, aType2 As Boolean)
         partnerVals.Add "name", "Upsert Initial Name"
         mainDict.Add testExternalId, partnerVals
         
-        Set resultRes = repo.UpsertRecordsByExternalId(testModel, mainDict)
+        Set resultRes = repo.UpsertRecordByExternalId(testModel, mainDict)
         
         Test.NotUndefined resultRes
         Test.IsEqual resultRes.Exists(testExternalId), True
@@ -271,7 +273,7 @@ Private Sub SpecUpsertRecordsByExternalId(Suite As TestSuite, aType2 As Boolean)
         updateVals.Add "name", "Upsert Updated Name"
         updateDict.Add testExternalId, updateVals
         
-        Set resultRes = repo.UpsertRecordsByExternalId(testModel, updateDict)
+        Set resultRes = repo.UpsertRecordByExternalId(testModel, updateDict)
         
         Test.NotUndefined resultRes
         Test.IsEqual resultRes.Exists(testExternalId), True
@@ -288,6 +290,100 @@ Private Sub SpecUpsertRecordsByExternalId(Suite As TestSuite, aType2 As Boolean)
         Dim isDeleted As Boolean
         isDeleted = repo.UnlinkRecord(testModel, createdId)
         Test.IsEqual isDeleted, True
+        
+        .IsEqual Test.Result, TestResultType.Pass
+    End With
+End Sub
+
+''
+' Tests for UnlinkRecordByExternalId (Delete operations based on External ID(s) supporting String and Collection).
+'
+' @param Suite TestSuite instance
+' @param aType2 Boolean flag indicating whether to use Type2 repository
+''
+Private Sub SpecUnlinkRecordByExternalId(Suite As TestSuite, aType2 As Boolean)
+    Dim Tests As New TestSuite
+    Dim Test As TestCase
+    Dim repo As OdxRepository
+    
+    Set repo = CreateOdxRepository(aType2)
+    
+    With Suite.Test("TestUnlinkRecordByExternalId - Unlink and Status Verification")
+        Set Test = Tests.Test("should successfully handle single and mixed batch unlinks with expected errors")
+        
+        Dim testModel As String
+        Dim extId1 As String, extId2 As String, extId3 As String
+        Dim testModelVals As Dictionary
+        Dim createdIds As Collection
+        Dim resultRes As Dictionary
+        Dim existingMap As Dictionary
+        
+        testModel = "res.partner"
+        extId1 = "SpecOdxRepository.test_unlink_partner_1"
+        extId2 = "SpecOdxRepository.test_unlink_partner_2"
+        extId3 = "SpecOdxRepository.test_unlink_partner_3"
+        
+        ' ----------------------------------------------------------------------
+        ' 0. Pre-cleanup (just in case previous test left orphaned records)
+        ' ----------------------------------------------------------------------
+        Set existingMap = repo.GetModelAndIdFromExternalId(extId1)
+        If Not existingMap Is Nothing Then repo.UnlinkRecord testModel, existingMap("res_id")
+        
+        Set existingMap = repo.GetModelAndIdFromExternalId(extId2)
+        If Not existingMap Is Nothing Then repo.UnlinkRecord testModel, existingMap("res_id")
+        
+        Set existingMap = repo.GetModelAndIdFromExternalId(extId3)
+        If Not existingMap Is Nothing Then repo.UnlinkRecord testModel, existingMap("res_id")
+        
+        ' ----------------------------------------------------------------------
+        ' 1. Setup: Create 3 test records and register their External IDs
+        ' ----------------------------------------------------------------------
+        Set testModelVals = New Dictionary
+        testModelVals.Add "name", "Unlink Test Partner A"
+        Set createdIds = repo.CreateRecord(testModel, testModelVals)
+        repo.RegisterExternalId testModel, createdIds(1), extId1
+        
+        testModelVals("name") = "Unlink Test Partner B"
+        Set createdIds = repo.CreateRecord(testModel, testModelVals)
+        repo.RegisterExternalId testModel, createdIds(1), extId2
+        
+        testModelVals("name") = "Unlink Test Partner C"
+        Set createdIds = repo.CreateRecord(testModel, testModelVals)
+        repo.RegisterExternalId testModel, createdIds(1), extId3
+        
+        ' ----------------------------------------------------------------------
+        ' 2. Test: Unlink the 1st record individually using a String External ID
+        ' ----------------------------------------------------------------------
+        Set resultRes = repo.UnlinkRecordByExternalId(testModel, extId1)
+        
+        Test.NotUndefined resultRes
+        Test.IsEqual resultRes.Exists(extId1), True
+        Test.IsEqual CStr(resultRes(extId1)("action")), "unlinked"
+        
+        ' ----------------------------------------------------------------------
+        ' 3. Test: Unlink all 3 records using a Collection (extId1 is already gone -> error, extId2 & extId3 -> success)
+        ' ----------------------------------------------------------------------
+        Dim extIdCol As New Collection
+        extIdCol.Add extId1  ' Already deleted -> should result in an error
+        extIdCol.Add extId2  ' Still exists -> success (unlinked)
+        extIdCol.Add extId3  ' Still exists -> success (unlinked)
+        
+        Set resultRes = repo.UnlinkRecordByExternalId(testModel, extIdCol)
+        
+        Test.NotUndefined resultRes
+        
+        ' Verification 1: The 1st record should return an error since it was already unlinked
+        Test.IsEqual resultRes.Exists(extId1), True
+        Test.IsEqual CStr(resultRes(extId1)("action")), "error"
+        Test.NotUndefined CStr(resultRes(extId1)("error_message"))
+        
+        ' Verification 2: The 2nd record should be successfully unlinked
+        Test.IsEqual resultRes.Exists(extId2), True
+        Test.IsEqual CStr(resultRes(extId2)("action")), "unlinked"
+        
+        ' Verification 3: The 3rd record should be successfully unlinked
+        Test.IsEqual resultRes.Exists(extId3), True
+        Test.IsEqual CStr(resultRes(extId3)("action")), "unlinked"
         
         .IsEqual Test.Result, TestResultType.Pass
     End With

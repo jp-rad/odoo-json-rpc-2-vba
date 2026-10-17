@@ -50,6 +50,7 @@ Public Sub RunSpecsAll()
     SpecOd2Repository.RegisterSpecs Suite
     
     SpecOdxRepository.RegisterSpecs Suite
+    SpecOdxModelRemoteSync.RegisterSpecs Suite
     
     PrintSummary Suite
 End Sub
