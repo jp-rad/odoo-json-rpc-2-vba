@@ -39,15 +39,11 @@ Option Explicit
 '
 ' @param Suite TestSuite instance
 ''
-Public Sub RegisterSpecs(Suite As TestSuite)
-    SpecOdxRepositoryExternalIdMapping Suite, False
-    SpecOdxRepositoryExternalIdMapping Suite, True
-    SpecRegisterExternalIdLifecycle Suite, False
-    SpecRegisterExternalIdLifecycle Suite, True
-    SpecUpsertRecordByExternalId Suite, False
-    SpecUpsertRecordByExternalId Suite, True
-    SpecUnlinkRecordByExternalId Suite, False
-    SpecUnlinkRecordByExternalId Suite, True
+Public Sub RegisterSpecs(Suite As TestSuite, aType2 As Boolean)
+    SpecOdxRepositoryExternalIdMapping Suite, aType2
+    SpecRegisterExternalIdLifecycle Suite, aType2
+    SpecUpsertRecordByExternalId Suite, aType2
+    SpecUnlinkRecordByExternalId Suite, aType2
 End Sub
 
 ' ------------------------------------------------------------------------------

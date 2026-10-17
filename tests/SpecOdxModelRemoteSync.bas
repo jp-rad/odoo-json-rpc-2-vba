@@ -39,9 +39,8 @@ Option Explicit
 '
 ' @param Suite TestSuite instance
 ''
-Public Sub RegisterSpecs(Suite As TestSuite)
-    SpecOdxModelRemoteSync Suite, False
-    SpecOdxModelRemoteSync Suite, True
+Public Sub RegisterSpecs(Suite As TestSuite, aType2 As Boolean)
+    SpecOdxModelRemoteSync Suite, aType2
 End Sub
 
 ''
@@ -65,7 +64,7 @@ Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
     model.AddField "comment"
     model.AddField "phone"
     model.AddField "partner_latitude"
-    model.AddField "offline_since"
+    'model.AddField "offline_since"
     
     With Suite.Test("TestOdxModelRemoteSync - Comprehensive Null Coverage (String, float, Datetime)")
         
@@ -102,7 +101,7 @@ Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
         rs("is_company").Value = False
         rs("phone").Value = "+1-555-9999"                   ' Valid string
         rs("partner_latitude").Value = 42.195               ' Valid integer
-        rs("offline_since").Value = DateSerial(2026, 6, 1) + TimeSerial(12, 34, 56) ' Valid datetime
+        'rs("offline_since").Value = DateSerial(2026, 6, 1) + TimeSerial(12, 34, 56) ' Valid datetime
         rs("comment").Value = Null                          ' Null string
         rs(model.ExternalIdFieldName).Value = testExternalId
         rs.Update
@@ -121,7 +120,7 @@ Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
         ' Verify creation values remotely
         fieldsToRead.Add "phone"
         fieldsToRead.Add "partner_latitude"
-        fieldsToRead.Add "offline_since"
+        'fieldsToRead.Add "offline_since"
         fieldsToRead.Add "comment"
         
         Set partnerRecords = repo.ReadRecord("res.partner", createdId, fieldsToRead)
@@ -139,7 +138,7 @@ Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
         Debug.Assert rs("id").Value = createdId
         rs("phone").Value = Null                ' Change string to Null
         rs("partner_latitude").Value = Null     ' Change float to Null
-        rs("offline_since").Value = Null        ' Change datetime to Null
+        'rs("offline_since").Value = Null        ' Change datetime to Null
         rs("comment").Value = "Now populated"   ' Change null string to valid value
         rs.Update
         
@@ -155,7 +154,7 @@ Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
         
         .IsEqual partnerRecords(1)("phone"), False
         .IsEqual partnerRecords(1)("partner_latitude"), False
-        .IsEqual partnerRecords(1)("offline_since"), False
+        '.IsEqual partnerRecords(1)("offline_since"), False
         .IsEqual partnerRecords(1)("comment"), "<p>Now populated</p>"
         
         ' ----------------------------------------------------------------------

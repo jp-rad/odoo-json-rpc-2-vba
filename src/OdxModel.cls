@@ -201,15 +201,15 @@ End Sub
 ' Adds a new field to the local disconnected Recordset structure as a non-model property.
 '
 ' @param aFieldName   The name of the field to be added.
-' @param aType        The ADODB data type (e.g., adInteger, adVarWChar).
+' @param aDataType    The ADODB data type (e.g., adInteger, adVarWChar).
 ' @param aDefinedSize Optional maximum length or size of the field (Default: 0 for types that do not require size).
 ''
-Public Sub AddLocalField(aFieldName As String, AType As ADODB.DataTypeEnum, Optional aDefinedSize As Long = 0)
+Public Sub AddLocalField(aFieldName As String, aDataType As ADODB.DataTypeEnum, Optional aDefinedSize As Long = 0)
     ' Append a non-model field to the local Recordset structure
     If aDefinedSize = 0 Then
-        mRs.Fields.Append Name:=aFieldName, Type:=AType, Attrib:=CATTR_NON_MODEL
+        mRs.Fields.Append Name:=aFieldName, Type:=aDataType, Attrib:=CATTR_NON_MODEL
     Else
-        mRs.Fields.Append Name:=aFieldName, Type:=AType, DefinedSize:=aDefinedSize, Attrib:=CATTR_NON_MODEL
+        mRs.Fields.Append Name:=aFieldName, Type:=aDataType, DefinedSize:=aDefinedSize, Attrib:=CATTR_NON_MODEL
     End If
 End Sub
 

@@ -46,11 +46,14 @@ Public Sub RunSpecsAll()
     SpecOdClient.RegisterSpecs Suite
     SpecOdRepository.RegisterSpecs Suite
     
+    SpecOdxRepository.RegisterSpecs Suite, False
+    SpecOdxModelRemoteSync.RegisterSpecs Suite, False
+    
     SpecOd2Client.RegisterSpecs Suite
     SpecOd2Repository.RegisterSpecs Suite
     
-    SpecOdxRepository.RegisterSpecs Suite
-    SpecOdxModelRemoteSync.RegisterSpecs Suite
+    SpecOdxRepository.RegisterSpecs Suite, True
+    SpecOdxModelRemoteSync.RegisterSpecs Suite, True
     
     PrintSummary Suite
 End Sub
@@ -64,9 +67,14 @@ Public Sub RunSpecsType1()
         
     ' Register specs from external spec modules
     SpecOdFilter.RegisterSpecs Suite
+    SpecJsonUtils.RegisterSpecs Suite
+    SpecOdJsonRpc.RegisterSpecs Suite
 
     SpecOdClient.RegisterSpecs Suite
     SpecOdRepository.RegisterSpecs Suite
+    
+    SpecOdxRepository.RegisterSpecs Suite, False
+    SpecOdxModelRemoteSync.RegisterSpecs Suite, False
     
     PrintSummary Suite
 End Sub
@@ -80,9 +88,14 @@ Public Sub RunSpecsType2()
         
     ' Register specs from external spec modules
     SpecOdFilter.RegisterSpecs Suite
+    SpecJsonUtils.RegisterSpecs Suite
+    SpecOdJsonRpc.RegisterSpecs Suite
 
     SpecOd2Client.RegisterSpecs Suite
     SpecOd2Repository.RegisterSpecs Suite
+    
+    SpecOdxRepository.RegisterSpecs Suite, True
+    SpecOdxModelRemoteSync.RegisterSpecs Suite, True
     
     PrintSummary Suite
 End Sub
