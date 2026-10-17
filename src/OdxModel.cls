@@ -204,12 +204,12 @@ End Sub
 ' @param aType        The ADODB data type (e.g., adInteger, adVarWChar).
 ' @param aDefinedSize Optional maximum length or size of the field (Default: 0 for types that do not require size).
 ''
-Public Sub AddLocalField(aFieldName As String, aType As ADODB.DataTypeEnum, Optional aDefinedSize As Long = 0)
+Public Sub AddLocalField(aFieldName As String, AType As ADODB.DataTypeEnum, Optional aDefinedSize As Long = 0)
     ' Append a non-model field to the local Recordset structure
     If aDefinedSize = 0 Then
-        mRs.Fields.Append Name:=aFieldName, Type:=aType, Attrib:=CATTR_NON_MODEL
+        mRs.Fields.Append Name:=aFieldName, Type:=AType, Attrib:=CATTR_NON_MODEL
     Else
-        mRs.Fields.Append Name:=aFieldName, Type:=aType, DefinedSize:=aDefinedSize, Attrib:=CATTR_NON_MODEL
+        mRs.Fields.Append Name:=aFieldName, Type:=AType, DefinedSize:=aDefinedSize, Attrib:=CATTR_NON_MODEL
     End If
 End Sub
 
@@ -390,10 +390,14 @@ End Function
 
 ''
 ' Executes a remote search-read operation via the repository and populates local records.
+' - Raises an exception if called on a non-base (relational) model view.
 '
 ' @param aDomain OdFilterDomain search criteria
-' @param limit Maximum number of records to retrieve
+' @param aOffset Number of records to skip
+' @param aLimit Maximum number of records to retrieve
+' @param aOrder Sorting order
 ' @return Long Number of fetched records
+' @throws ERR_API_EXECUTION if called on a non-base model.
 ''
 Public Function FetchSearchAndReadRemote( _
     Optional aDomain As Collection, _
@@ -401,6 +405,10 @@ Public Function FetchSearchAndReadRemote( _
     Optional aLimit As Long = 0, _
     Optional aOrder As String = "" _
 ) As Long
+    ' Ensure FetchSearchAndReadRemote is only called on the base model view
+    If mModelType <> mtBase Then
+        Err.Raise ERR_API_EXECUTION, "OdxModel", "FetchSearchAndReadRemote can only be called on a base model, not on relational views."
+    End If
     Dim colFieldNames As Collection
     Dim colResult As Collection
     
@@ -448,6 +456,174 @@ Public Function FetchRecordsRemote() As Long
     
     UpsertRecordSet colResult
     FetchRecordsRemote = colResult.Count
+End Function
+
+''
+' Upserts the current record in the local Recordset to Odoo remotely.
+' - If the external ID field is defined and populated, it uses external ID-based upsert.
+' - Otherwise, it updates existing records by internal ID or creates new records.
+' - For newly created records, it writes back the assigned Odoo internal ID into the local Recordset.
+' - Raises an exception if the operation fails or if there is no current record.
+'
+' @return Dictionary containing "action" ("created" or "updated") and "id" (Long)
+' @throws ERR_API_EXECUTION if no current record or if the upsert operation fails.
+''
+Public Function UpsertCurrentRecordRemote() As Dictionary
+    Dim fieldValues As Dictionary
+    Dim fld As ADODB.Field
+    Dim nId As Long
+    Dim extId As String
+    Dim hasExternalIdField As Boolean
+    Dim resultInfo As New Dictionary
+    Dim isSuccess As Boolean
+    Dim actionType As String
+    Dim extIdDict As Dictionary
+    Dim upsertResult As Dictionary
+    Dim resInfo As Dictionary
+    Dim errMsg As String
+    Dim createdIds As Collection
+    
+    hasExternalIdField = mExternalIdFieldName <> ""
+    
+    ' Collect field values for the current record
+    Set fieldValues = New Dictionary
+    For Each fld In mRs.Fields
+        If IsOdooField(fld) And fld.Name <> "id" Then
+            fieldValues.Add fld.Name, fld.Value
+        End If
+    Next fld
+    
+    ' Determine key and execute Upsert/Update/Create
+    If hasExternalIdField Then
+        ' ------------------------------------------------------------------
+        ' Upsert via External ID
+        ' ------------------------------------------------------------------
+        extId = GetFieldValueOrDefault(mExternalIdFieldName, "")
+        Set extIdDict = New Dictionary
+        extIdDict.Add extId, fieldValues
+        
+        Set upsertResult = mRepository.UpsertRecordByExternalId(mModelName, extIdDict)
+        
+        isSuccess = False
+        If Not upsertResult Is Nothing Then
+            Set resInfo = upsertResult(extId)
+            If resInfo("action") <> "error" Then
+                nId = resInfo("id")
+                actionType = resInfo("action")
+                mRs("id").Value = nId
+                isSuccess = True
+            End If
+        End If
+        
+        If Not isSuccess Then
+            errMsg = "Failed to upsert record by External ID."
+            If Not upsertResult Is Nothing Then
+                If upsertResult.Exists(extId) Then
+                    If upsertResult(extId).Exists("error_message") Then
+                        errMsg = upsertResult(extId)("error_message")
+                    End If
+                End If
+            End If
+            Err.Raise ERR_API_EXECUTION, "OdxModel", errMsg
+        End If
+        
+    Else
+        ' ------------------------------------------------------------------
+        ' Upsert via Internal ID (Create vs Write)
+        ' ------------------------------------------------------------------
+        nId = mRs("id").Value
+        
+        If nId > 0 Then
+            ' --- Update Existing Record ---
+            isSuccess = mRepository.WriteRecord(mModelName, nId, fieldValues)
+            actionType = "updated"
+            If Not isSuccess Then
+                Err.Raise ERR_API_EXECUTION, "OdxModel", "Failed to update record with ID."
+            End If
+        Else
+            ' --- Create New Record ---
+            Set createdIds = mRepository.CreateRecord(mModelName, fieldValues)
+            If Not createdIds Is Nothing Then
+                nId = createdIds(1)
+                mRs("id").Value = nId
+                actionType = "created"
+            Else
+                Err.Raise ERR_API_EXECUTION, "OdxModel", "Failed to create new record."
+            End If
+        End If
+    End If
+    
+    mRs.Update
+    
+    resultInfo.Add "action", actionType
+    resultInfo.Add "id", nId
+    Set UpsertCurrentRecordRemote = resultInfo
+End Function
+
+''
+' Unlinks the current record in the local Recordset from Odoo remotely.
+' - If the external ID field is defined and populated, it unlinks using the external ID.
+' - Otherwise, it unlinks using the internal record ID.
+' - Upon successful remote unlinking, the record is deleted from the local Recordset.
+' - Raises an exception if the operation fails or if there is no current record.
+'
+' @return Dictionary containing "action" ("unlinked") and "id" (Long)
+' @throws ERR_API_EXECUTION if no current record or if the unlink operation fails.
+''
+Public Function UnlinkCurrentRecordRemote() As Dictionary
+    Dim extId As String
+    Dim nId As Long
+    Dim hasExternalIdField As Boolean
+    Dim resultInfo As New Dictionary
+    Dim isSuccess As Boolean
+    Dim unlinkResult As Dictionary
+    Dim resInfo As Dictionary
+    Dim errMsg As String
+        
+    hasExternalIdField = mExternalIdFieldName <> ""
+    
+    If hasExternalIdField Then
+        ' ------------------------------------------------------------------
+        ' Unlink via External ID
+        ' ------------------------------------------------------------------
+        extId = GetFieldValueOrDefault(mExternalIdFieldName, "")
+        Set unlinkResult = mRepository.UnlinkRecordByExternalId(mModelName, extId)
+        
+        isSuccess = False
+        If Not unlinkResult Is Nothing Then
+            Set resInfo = unlinkResult(extId)
+            If CStr(resInfo("action")) = "unlinked" Then
+                nId = resInfo("id")
+                isSuccess = True
+            End If
+        End If
+        
+        If Not isSuccess Then
+            errMsg = "Failed to unlink record by External ID."
+            If Not unlinkResult Is Nothing Then
+                If unlinkResult.Exists(extId) Then
+                    If unlinkResult(extId).Exists("error_message") Then
+                        errMsg = unlinkResult(extId)("error_message")
+                    End If
+                End If
+            End If
+            Err.Raise ERR_API_EXECUTION, "OdxModel", errMsg
+        End If
+        
+    Else
+        ' ------------------------------------------------------------------
+        ' Unlink via Internal ID
+        ' ------------------------------------------------------------------
+        nId = mRs("id").Value
+        isSuccess = mRepository.UnlinkRecord(mModelName, nId)
+        If Not isSuccess Then
+            Err.Raise ERR_API_EXECUTION, "OdxModel", "Failed to unlink record with ID."
+        End If
+    End If
+        
+    resultInfo.Add "action", "unlinked"
+    resultInfo.Add "id", nId
+    Set UnlinkCurrentRecordRemote = resultInfo
 End Function
 
 Public Sub SetFilter(aExpr As String)
