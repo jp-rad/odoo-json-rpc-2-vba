@@ -535,11 +535,9 @@ Public Function UpsertRecordByExternalId(aModel As String, aValuesDict As Dictio
         
         Set recordInfo = New Dictionary
         
-        On Error Resume Next
-        Err.Clear
+        On Error GoTo RecordError
         
         Set modelAndId = GetModelAndIdFromExternalId(externalId)
-        If Err.Number <> 0 Then GoTo RecordError
         
         If Not modelAndId Is Nothing Then
             ' ------------------------------------------------------------------
@@ -548,15 +546,10 @@ Public Function UpsertRecordByExternalId(aModel As String, aValuesDict As Dictio
             If modelAndId("model") <> aModel Then
                 Err.Raise vbObjectError + 101, "OdxRepository", "Model mismatch."
             End If
-            If Err.Number <> 0 Then GoTo RecordError
             
             resId = modelAndId("res_id")
             
             writeSuccess = WriteRecord(aModel, resId, fieldValues)
-            If Err.Number <> 0 Or Not writeSuccess Then
-                If Err.Number = 0 Then Err.Raise vbObjectError + 102, "OdxRepository", "Failed to update record."
-                GoTo RecordError
-            End If
             
             recordInfo.Add "id", resId
             recordInfo.Add "action", "updated"
@@ -566,18 +559,10 @@ Public Function UpsertRecordByExternalId(aModel As String, aValuesDict As Dictio
             ' Create New Record and Register External ID
             ' ------------------------------------------------------------------
             Set createdRes = CreateRecord(aModel, fieldValues)
-            If Err.Number <> 0 Or createdRes Is Nothing Or createdRes.Count = 0 Then
-                If Err.Number = 0 Then Err.Raise vbObjectError + 103, "OdxRepository", "Failed to create record."
-                GoTo RecordError
-            End If
             
             resId = createdRes(1)
             
             regSuccess = RegisterExternalId(aModel, resId, externalId)
-            If Err.Number <> 0 Or Not regSuccess Then
-                If Err.Number = 0 Then Err.Raise vbObjectError + 104, "OdxRepository", "Failed to register External ID."
-                GoTo RecordError
-            End If
             
             recordInfo.Add "id", resId
             recordInfo.Add "action", "created"
@@ -636,7 +621,6 @@ Public Function UnlinkRecordByExternalId(aModel As String, aExternalId As Varian
         unlinkSuccess = False
         
         On Error GoTo UnlinkError
-        Err.Clear
         
         ' Resolve External ID to internal ID
         Set modelAndId = GetModelAndIdFromExternalId(extId)
