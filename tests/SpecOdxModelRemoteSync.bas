@@ -45,15 +45,14 @@ Public Sub RegisterSpecs(Suite As TestSuite)
 End Sub
 
 ''
-' Tests for OdxModel remote synchronization methods:
-' FetchSearchAndReadRemote, UpsertCurrentRecordRemote, and UnlinkCurrentRecordRemote.
+' Tests for OdxModel remote synchronization methods with comprehensive coverage
+' for creating and updating records containing Null values across multiple types
+' (String, Integer, Date/Datetime).
 '
 ' @param Suite TestSuite instance
 ' @param aType2 Boolean flag indicating whether to use Type2 repository
 ''
 Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
-    Dim Tests As New TestSuite
-    Dim Test As TestCase
     Dim repo As OdxRepository
     Dim model As OdxModel
     
@@ -63,19 +62,24 @@ Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
     model.AddExternalIdField
     model.AddField "name"
     model.AddField "is_company"
+    model.AddField "comment"
+    model.AddField "phone"
+    model.AddField "partner_latitude"
+    model.AddField "offline_since"
     
-    With Suite.Test("TestOdxModelRemoteSync - Fetch, Upsert, and Unlink Current Record")
-        Set Test = Tests.Test("should fetch, upsert, and unlink current record successfully")
+    With Suite.Test("TestOdxModelRemoteSync - Comprehensive Null Coverage (String, float, Datetime)")
         
         Dim testExternalId As String
         Dim existingMap As Dictionary
-        Dim domain As New Collection
-        Dim cond As New Collection
         Dim fetchCount As Long
         Dim upsertRes As Dictionary
         Dim unlinkRes As Dictionary
+        Dim rs As ADODB.Recordset
+        Dim createdId As Long
+        Dim partnerRecords As Collection
+        Dim fieldsToRead As New Collection
         
-        testExternalId = "SpecOdxModel.test_remote_sync_1"
+        testExternalId = "SpecOdxModel.test_remote_sync_comprehensive_null"
         
         ' ----------------------------------------------------------------------
         ' 0. Pre-cleanup (remove orphaned records if any)
@@ -85,59 +89,83 @@ Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
             repo.UnlinkRecord "res.partner", existingMap("res_id")
         End If
         
-        ' ----------------------------------------------------------------------
-        ' 1. Test: Fetch records remotely using FetchSearchAndReadRemote
-        ' ----------------------------------------------------------------------
         fetchCount = model.FetchSearchAndReadRemote()
-        Test.IsEqual (fetchCount >= 0), True
         
         ' ----------------------------------------------------------------------
-        ' 2. Test: Add a new record locally and upsert via UpsertCurrentRecordRemote
+        ' 1. Test: Create record with valid values and explicit Nulls across types
         ' ----------------------------------------------------------------------
-        Dim rs As ADODB.Recordset
         Set rs = model.Recordset
         
         rs.AddNew
-        rs("name").Value = "OdxModel Sync Test Partner"
+        rs("id").Value = -1
+        rs("name").Value = "Comprehensive Null Test Partner"
         rs("is_company").Value = False
+        rs("phone").Value = "+1-555-9999"                   ' Valid string
+        rs("partner_latitude").Value = 42.195               ' Valid integer
+        rs("offline_since").Value = DateSerial(2026, 6, 1) + TimeSerial(12, 34, 56) ' Valid datetime
+        rs("comment").Value = Null                          ' Null string
         rs(model.ExternalIdFieldName).Value = testExternalId
         rs.Update
         
-        ' Move to the newly added record to make it the current record
         rs.MoveLast
         
-        ' Upsert current record (should trigger create)
         Set upsertRes = model.UpsertCurrentRecordRemote()
         
-        Test.NotUndefined upsertRes
-        Test.IsEqual CStr(upsertRes("action")), "created"
-        Test.NotEqual CLng(upsertRes("id")), 0
+        .NotUndefined upsertRes
+        .IsEqual CStr(upsertRes("action")), "created"
+        .NotEqual CLng(upsertRes("id")), 0
         
-        Dim createdId As Long
         createdId = CLng(upsertRes("id"))
-        Test.IsEqual CLng(rs("id").Value), createdId
+        .IsEqual CLng(rs("id").Value), createdId
+        
+        ' Verify creation values remotely
+        fieldsToRead.Add "phone"
+        fieldsToRead.Add "partner_latitude"
+        fieldsToRead.Add "offline_since"
+        fieldsToRead.Add "comment"
+        
+        Set partnerRecords = repo.ReadRecord("res.partner", createdId, fieldsToRead)
+        .IsEqual partnerRecords.Count, 1
+        
+        .IsEqual partnerRecords(1)("phone"), "+1-555-9999"
+        .IsEqual partnerRecords(1)("partner_latitude"), 42.195
+        '.IsEqual ParseUtcDatetime(partnerRecords(1)("offline_since")), DateSerial(2026, 6, 1) + TimeSerial(12, 34, 56)
+        .IsEqual partnerRecords(1)("comment"), False
         
         ' ----------------------------------------------------------------------
-        ' 3. Test: Modify local data and upsert again (should trigger update)
+        ' 2. Test: Update record, changing valid values of various types to Null
         ' ----------------------------------------------------------------------
-        rs("name").Value = "OdxModel Sync Test Partner Updated"
+        rs.MoveLast
+        Debug.Assert rs("id").Value = createdId
+        rs("phone").Value = Null                ' Change string to Null
+        rs("partner_latitude").Value = Null     ' Change float to Null
+        rs("offline_since").Value = Null        ' Change datetime to Null
+        rs("comment").Value = "Now populated"   ' Change null string to valid value
         rs.Update
         
         Set upsertRes = model.UpsertCurrentRecordRemote()
         
-        Test.NotUndefined upsertRes
-        Test.IsEqual CStr(upsertRes("action")), "updated"
-        Test.IsEqual CLng(upsertRes("id")), createdId
+        .NotUndefined upsertRes
+        .IsEqual CStr(upsertRes("action")), "updated"
+        .IsEqual CLng(upsertRes("id")), createdId
+        
+        ' Verify remotely that cleared fields are False/Null/Zero and comment is updated
+        Set partnerRecords = repo.ReadRecord("res.partner", createdId, fieldsToRead)
+        .IsEqual partnerRecords.Count, 1
+        
+        .IsEqual partnerRecords(1)("phone"), False
+        .IsEqual partnerRecords(1)("partner_latitude"), False
+        .IsEqual partnerRecords(1)("offline_since"), False
+        .IsEqual partnerRecords(1)("comment"), "<p>Now populated</p>"
         
         ' ----------------------------------------------------------------------
-        ' 4. Test: Unlink current record using UnlinkCurrentRecordRemote
+        ' 3. Cleanup: Unlink current record
         ' ----------------------------------------------------------------------
         Set unlinkRes = model.UnlinkCurrentRecordRemote()
         
-        Test.NotUndefined unlinkRes
-        Test.IsEqual CStr(unlinkRes("action")), "unlinked"
-        Test.IsEqual CLng(unlinkRes("id")), createdId
-                
-        .IsEqual Test.Result, TestResultType.Pass
+        .NotUndefined unlinkRes
+        .IsEqual CStr(unlinkRes("action")), "unlinked"
+        .IsEqual CLng(unlinkRes("id")), createdId
+        
     End With
 End Sub

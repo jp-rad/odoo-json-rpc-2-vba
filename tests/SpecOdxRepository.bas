@@ -62,14 +62,11 @@ End Sub
 ' @param aType2 Boolean flag indicating whether to use Type2 repository
 ''
 Private Sub SpecOdxRepositoryExternalIdMapping(Suite As TestSuite, aType2 As Boolean)
-    Dim Tests As New TestSuite
-    Dim Test As TestCase
     Dim repo As OdxRepository
     
     Set repo = CreateOdxRepository(aType2)
     
     With Suite.Test("TestOdxRepository - External ID and Record Resolution")
-        Set Test = Tests.Test("should resolve external ids and match partner names dynamically")
         
         Dim resolvedModelId As Dictionary
         Dim partnerRecords As Collection
@@ -82,25 +79,25 @@ Private Sub SpecOdxRepositoryExternalIdMapping(Suite As TestSuite, aType2 As Boo
         ' Verify model and read record to confirm the name is "Acme Corporation"
         ' ----------------------------------------------------------------------
         Set resolvedModelId = repo.GetModelAndIdFromExternalId("base.res_partner_2")
-        Test.NotUndefined resolvedModelId
-        Test.IsEqual resolvedModelId("model"), "res.partner"
+        .NotUndefined resolvedModelId
+        .IsEqual resolvedModelId("model"), "res.partner"
         
         ' Read record using the resolved res_id to check name dynamically
         Set partnerRecords = repo.ReadRecord("res.partner", resolvedModelId("res_id"), fieldsToRead)
-        Test.IsEqual partnerRecords.Count, 1
-        Test.IsEqual CStr(partnerRecords(1)("name")), "Acme Corporation"
+        .IsEqual partnerRecords.Count, 1
+        .IsEqual CStr(partnerRecords(1)("name")), "Acme Corporation"
         
         ' ----------------------------------------------------------------------
         ' 2. Test: Resolve from External ID ("base.res_partner_address_31")
         ' Verify record name is "Addison Olson"
         ' ----------------------------------------------------------------------
         Set resolvedModelId = repo.GetModelAndIdFromExternalId("base.res_partner_address_31")
-        Test.NotUndefined resolvedModelId
-        Test.IsEqual resolvedModelId("model"), "res.partner"
+        .NotUndefined resolvedModelId
+        .IsEqual resolvedModelId("model"), "res.partner"
         
         Set partnerRecords = repo.ReadRecord("res.partner", resolvedModelId("res_id"), fieldsToRead)
-        Test.IsEqual partnerRecords.Count, 1
-        Test.IsEqual CStr(partnerRecords(1)("name")), "Addison Olson"
+        .IsEqual partnerRecords.Count, 1
+        .IsEqual CStr(partnerRecords(1)("name")), "Addison Olson"
         
         ' ----------------------------------------------------------------------
         ' 3. Test: Search by domain to find a record, then test GetExternalIdFromModelAndId
@@ -120,10 +117,9 @@ Private Sub SpecOdxRepositoryExternalIdMapping(Suite As TestSuite, aType2 As Boo
             
             Dim externalId As String
             externalId = repo.GetExternalIdFromModelAndId("res.partner", dynamicResId)
-            Test.IsEqual externalId, "base.res_partner_address_3"
+            .IsEqual externalId, "base.res_partner_address_3"
         End If
         
-        .IsEqual Test.Result, TestResultType.Pass
     End With
 End Sub
 
@@ -134,14 +130,11 @@ End Sub
 ' @param aType2 Boolean flag indicating whether to use Type2 repository
 ''
 Private Sub SpecRegisterExternalIdLifecycle(Suite As TestSuite, aType2 As Boolean)
-    Dim Tests As New TestSuite
-    Dim Test As TestCase
     Dim repo As OdxRepository
     
     Set repo = CreateOdxRepository(aType2)
     
     With Suite.Test("TestRegisterExternalId - Lifecycle and Cleanup")
-        Set Test = Tests.Test("should register, verify, and cleanup external id and partner record")
         
         Dim testPartnerVals As New Dictionary
         Dim createdIds As Collection
@@ -160,8 +153,8 @@ Private Sub SpecRegisterExternalIdLifecycle(Suite As TestSuite, aType2 As Boolea
         testPartnerVals.Add "is_company", False
         
         Set createdIds = repo.CreateRecord(testModel, testPartnerVals)
-        Test.NotUndefined createdIds
-        Test.IsEqual createdIds.Count, 1
+        .NotUndefined createdIds
+        .IsEqual createdIds.Count, 1
         
         partnerId = createdIds(1)
         
@@ -170,15 +163,15 @@ Private Sub SpecRegisterExternalIdLifecycle(Suite As TestSuite, aType2 As Boolea
         ' ----------------------------------------------------------------------
         Dim isRegistered As Boolean
         isRegistered = repo.RegisterExternalId(testModel, partnerId, testExternalId)
-        Test.IsEqual isRegistered, True
+        .IsEqual isRegistered, True
         
         ' ----------------------------------------------------------------------
         ' 3. Verify resolution from External ID to Model and ID
         ' ----------------------------------------------------------------------
         Set resDict = repo.GetModelAndIdFromExternalId(testExternalId)
-        Test.NotUndefined resDict
-        Test.IsEqual resDict("model"), testModel
-        Test.IsEqual resDict("res_id"), partnerId
+        .NotUndefined resDict
+        .IsEqual resDict("model"), testModel
+        .IsEqual resDict("res_id"), partnerId
         
         ' ----------------------------------------------------------------------
         ' 4. Cleanup: Delete the test partner record
@@ -187,7 +180,7 @@ Private Sub SpecRegisterExternalIdLifecycle(Suite As TestSuite, aType2 As Boolea
         ' ----------------------------------------------------------------------
         Dim isDeleted As Boolean
         isDeleted = repo.UnlinkRecord(testModel, partnerId)
-        Test.IsEqual isDeleted, True
+        .IsEqual isDeleted, True
         
         ' ----------------------------------------------------------------------
         ' 5. Verify that the External ID is also removed or no longer resolves
@@ -199,12 +192,11 @@ Private Sub SpecRegisterExternalIdLifecycle(Suite As TestSuite, aType2 As Boolea
         ' it should return Nothing or empty after the target record is deleted.
         If Not resolvedAfterDelete Is Nothing Then
             ' If ir.model.data record remains orphaned, ensure its res_id no longer exists or handle accordingly
-            Test.IsEqual resolvedAfterDelete.Count, 0
+            .IsEqual resolvedAfterDelete.Count, 0
         Else
-            Test.IsUndefined resolvedAfterDelete
+            .IsUndefined resolvedAfterDelete
         End If
         
-        .IsEqual Test.Result, TestResultType.Pass
     End With
 End Sub
 
@@ -215,14 +207,11 @@ End Sub
 ' @param aType2 Boolean flag indicating whether to use Type2 repository
 ''
 Private Sub SpecUpsertRecordByExternalId(Suite As TestSuite, aType2 As Boolean)
-    Dim Tests As New TestSuite
-    Dim Test As TestCase
     Dim repo As OdxRepository
     
     Set repo = CreateOdxRepository(aType2)
     
     With Suite.Test("TestUpsertRecordByExternalId - Upsert and Status Verification")
-        Set Test = Tests.Test("should successfully create and update records via UpsertRecordByExternalId")
         
         Dim testModel As String
         Dim testExternalId As String
@@ -253,17 +242,17 @@ Private Sub SpecUpsertRecordByExternalId(Suite As TestSuite, aType2 As Boolean)
         
         Set resultRes = repo.UpsertRecordByExternalId(testModel, mainDict)
         
-        Test.NotUndefined resultRes
-        Test.IsEqual resultRes.Exists(testExternalId), True
-        Test.IsEqual CStr(resultRes(testExternalId)("action")), "created"
+        .NotUndefined resultRes
+        .IsEqual resultRes.Exists(testExternalId), True
+        .IsEqual CStr(resultRes(testExternalId)("action")), "created"
         
         Dim createdId As Long
         createdId = CLng(resultRes(testExternalId)("id"))
-        Test.NotEqual createdId, 0
+        .NotEqual createdId, 0
         
         ' Verify the created record name
         Set partnerRecords = repo.ReadRecord(testModel, createdId, fieldsToRead)
-        Test.IsEqual CStr(partnerRecords(1)("name")), "Upsert Initial Name"
+        .IsEqual CStr(partnerRecords(1)("name")), "Upsert Initial Name"
         
         ' ----------------------------------------------------------------------
         ' 2. Test: Update action via Upsert (using the same external ID)
@@ -275,23 +264,22 @@ Private Sub SpecUpsertRecordByExternalId(Suite As TestSuite, aType2 As Boolean)
         
         Set resultRes = repo.UpsertRecordByExternalId(testModel, updateDict)
         
-        Test.NotUndefined resultRes
-        Test.IsEqual resultRes.Exists(testExternalId), True
-        Test.IsEqual CStr(resultRes(testExternalId)("action")), "updated"
-        Test.IsEqual CLng(resultRes(testExternalId)("id")), createdId
+        .NotUndefined resultRes
+        .IsEqual resultRes.Exists(testExternalId), True
+        .IsEqual CStr(resultRes(testExternalId)("action")), "updated"
+        .IsEqual CLng(resultRes(testExternalId)("id")), createdId
         
         ' Verify the updated record name
         Set partnerRecords = repo.ReadRecord(testModel, createdId, fieldsToRead)
-        Test.IsEqual CStr(partnerRecords(1)("name")), "Upsert Updated Name"
+        .IsEqual CStr(partnerRecords(1)("name")), "Upsert Updated Name"
         
         ' ----------------------------------------------------------------------
         ' 3. Cleanup: Delete the test partner record
         ' ----------------------------------------------------------------------
         Dim isDeleted As Boolean
         isDeleted = repo.UnlinkRecord(testModel, createdId)
-        Test.IsEqual isDeleted, True
+        .IsEqual isDeleted, True
         
-        .IsEqual Test.Result, TestResultType.Pass
     End With
 End Sub
 
@@ -302,14 +290,11 @@ End Sub
 ' @param aType2 Boolean flag indicating whether to use Type2 repository
 ''
 Private Sub SpecUnlinkRecordByExternalId(Suite As TestSuite, aType2 As Boolean)
-    Dim Tests As New TestSuite
-    Dim Test As TestCase
     Dim repo As OdxRepository
     
     Set repo = CreateOdxRepository(aType2)
     
     With Suite.Test("TestUnlinkRecordByExternalId - Unlink and Status Verification")
-        Set Test = Tests.Test("should successfully handle single and mixed batch unlinks with expected errors")
         
         Dim testModel As String
         Dim extId1 As String, extId2 As String, extId3 As String
@@ -356,9 +341,9 @@ Private Sub SpecUnlinkRecordByExternalId(Suite As TestSuite, aType2 As Boolean)
         ' ----------------------------------------------------------------------
         Set resultRes = repo.UnlinkRecordByExternalId(testModel, extId1)
         
-        Test.NotUndefined resultRes
-        Test.IsEqual resultRes.Exists(extId1), True
-        Test.IsEqual CStr(resultRes(extId1)("action")), "unlinked"
+        .NotUndefined resultRes
+        .IsEqual resultRes.Exists(extId1), True
+        .IsEqual CStr(resultRes(extId1)("action")), "unlinked"
         
         ' ----------------------------------------------------------------------
         ' 3. Test: Unlink all 3 records using a Collection (extId1 is already gone -> error, extId2 & extId3 -> success)
@@ -370,21 +355,20 @@ Private Sub SpecUnlinkRecordByExternalId(Suite As TestSuite, aType2 As Boolean)
         
         Set resultRes = repo.UnlinkRecordByExternalId(testModel, extIdCol)
         
-        Test.NotUndefined resultRes
+        .NotUndefined resultRes
         
         ' Verification 1: The 1st record should return an error since it was already unlinked
-        Test.IsEqual resultRes.Exists(extId1), True
-        Test.IsEqual CStr(resultRes(extId1)("action")), "error"
-        Test.NotUndefined CStr(resultRes(extId1)("error_message"))
+        .IsEqual resultRes.Exists(extId1), True
+        .IsEqual CStr(resultRes(extId1)("action")), "error"
+        .NotUndefined CStr(resultRes(extId1)("error_message"))
         
         ' Verification 2: The 2nd record should be successfully unlinked
-        Test.IsEqual resultRes.Exists(extId2), True
-        Test.IsEqual CStr(resultRes(extId2)("action")), "unlinked"
+        .IsEqual resultRes.Exists(extId2), True
+        .IsEqual CStr(resultRes(extId2)("action")), "unlinked"
         
         ' Verification 3: The 3rd record should be successfully unlinked
-        Test.IsEqual resultRes.Exists(extId3), True
-        Test.IsEqual CStr(resultRes(extId3)("action")), "unlinked"
+        .IsEqual resultRes.Exists(extId3), True
+        .IsEqual CStr(resultRes(extId3)("action")), "unlinked"
         
-        .IsEqual Test.Result, TestResultType.Pass
     End With
 End Sub
