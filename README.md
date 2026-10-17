@@ -52,7 +52,8 @@ By abstracting low-level network communication and mapping remote Odoo models di
 | `GetModelAndIdFromExternalId()` | Retrieves Model and Record ID from an External ID. |
 | `GetExternalIdFromModelAndId()` | Retrieves an existing External ID from Model and Record ID. |
 | `RegisterExternalId()` | Registers or updates an External ID in ir.model.data for a given Model and Record ID. |
-| `UpsertRecordsByExternalId()` | Upserts records for a given model based on External IDs. |
+| `UpsertRecordByExternalId()` | Upserts records for a given model based on External IDs. |
+| `UnlinkRecordByExternalId()` | Unlinks records for a given model based on External IDs. |
 
 
 ## API Version Support & Repository Creation
