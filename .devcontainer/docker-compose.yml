@@ -1,0 +1,72 @@
+version: '2'
+
+services:
+  app:
+    image: "odoo-addons-dev:20.0"
+    build:
+      context: "."
+      dockerfile: odoo/Dockerfile
+      args:
+        # Odoo version to build
+        ODOO_VERSION: "20.0"
+
+        # Enable RTL CSS support
+        SUPPORT_RTLCSS: "true"
+
+        # Python version variant
+        # Available image variants: https://github.com/microsoft/vscode-dev-containers/blob/main/containers/python-3/README.md
+        VARIANT: "3"
+    volumes:
+      - ./odoo/.vscode:/opt/odoo/.vscode:cached
+      - ../example_odoo:/opt/odoo/custom_addons:cached
+      - odoo-data:/opt/odoo/data
+      - ./odoo/scripts:/opt/odoo/scripts:cached
+      - ./odoo/entrypoint.sh:/opt/odoo/entrypoint.sh:cached
+      - ./odoo/odoo.conf:/etc/odoo/odoo.conf:cached
+      - ./odoo/.pulintrc:/home/vscode/.pylintrc:cached
+    env_file:
+      - ./odoo/odoo.env
+    depends_on:
+      - db
+      - lb
+    tty: true
+    command: bash
+    entrypoint: /opt/odoo/entrypoint.sh
+
+  db:
+    image: postgres:18
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=odoo
+      - POSTGRES_USER=odoo
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+
+  lb:
+    image: nginx:alpine
+    build:
+      context: "."
+      dockerfile: nginx/Dockerfile
+      args:
+        # Number of days the generated certificates remain valid
+        SSL_DAYS: "365"
+        # # Unified subject base used for both Root CA and server certificates
+        # SSL_SUBJECT_BASE: "/C=JP/ST=Origami/L=Layer/O=ValleyMountain/OU=StackGeometry"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:cached
+    ports:
+      - "80:80"
+      - "443:443"
+    # -------------------------------------------------------
+    # Manual certificate regeneration:
+    # Open Docker Desktop → select 'lb' → Terminal → run:
+    #
+    #   sh -c "/usr/local/bin/rebuild-certs.sh"
+    #
+    # -------------------------------------------------------
+
+volumes:
+  odoo-data:
+  postgres-data:

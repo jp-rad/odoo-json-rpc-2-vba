@@ -1,0 +1,4 @@
+# Python dependencies for custom Odoo addons.
+# Installed automatically in the Dev Container via:
+#     postCreateCommand: pip3 install -r ./custom_addons/requirements.txt
+
