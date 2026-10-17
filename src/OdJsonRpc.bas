@@ -85,26 +85,23 @@ Public Function ParseDate(aDateString As String) As Date
 End Function
 
 ''
-' Converts a Date value to an ISO datetime string format.
+' Converts a Date value to an UTC datetime string format.
 '
 ' @param aDatetime Date value to convert
-' @return String ISO datetime string
+' @return String UTC datetime string
 ''
-Public Function ConvertToIsoDatetime(aDatetime As Date) As String
-    ConvertToIsoDatetime = WebHelpers.ConvertToIso(aDatetime)
+Public Function ConvertToUtcDatetime(aDatetime As Date) As String
+    ConvertToUtcDatetime = Format(WebHelpers.ConvertToUtc(aDatetime), "yyyy-mm-dd hh:MM:ss")
 End Function
 
 ''
-' Parses an ISO datetime string into a Date type.
+' Parses an UTC datetime string into a Date type.
 '
-' @param aIsoString ISO datetime string
+' @param aUtcString UTC datetime string
 ' @return Date Parsed datetime value
 ''
-Public Function ParseIsoDatetime(ByVal aIsoString As String) As Date
-    If InStr(aIsoString, "T") = 0 Then
-        aIsoString = Replace(aIsoString, " ", "T") & "Z"
-    End If
-    ParseIsoDatetime = WebHelpers.ParseIso(aIsoString)
+Public Function ParseUtcDatetime(ByVal aUtcString As String) As Date
+    ParseUtcDatetime = WebHelpers.ParseUtc(CDate(aUtcString))
 End Function
 
 ''

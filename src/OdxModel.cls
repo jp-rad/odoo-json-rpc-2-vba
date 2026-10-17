@@ -356,7 +356,7 @@ Private Sub UpsertRecordSet(colResult As Collection)
             ElseIf IsOdooDateField(fld) Then
                 fld.Value = ParseDate(dicRecord(fld.Name))
             ElseIf IsOdooDateTimeField(fld) Then
-                fld.Value = ParseIsoDatetime(dicRecord(fld.Name))
+                fld.Value = ParseUtcDatetime(dicRecord(fld.Name))
             ElseIf IsObject(dicRecord(fld.Name)) Then
                 fld.Value = WebHelpers.ConvertToJson(dicRecord(fld.Name))
             Else
@@ -488,9 +488,24 @@ Public Function UpsertCurrentRecordRemote() As Dictionary
     ' Collect field values for the current record
     Set fieldValues = New Dictionary
     For Each fld In mRs.Fields
-        If IsOdooField(fld) And fld.Name <> "id" Then
-            fieldValues.Add fld.Name, fld.Value
+        If IsOdooPkField(fld) Then GoTo NextFieldValue
+        If Not IsOdooField(fld) Then GoTo NextFieldValue
+        If IsOdooOne2ManyField(fld) Then GoTo NextFieldValue
+        If IsOdooMany2ManyField(fld) Then GoTo NextFieldValue
+        If IsNull(fld.Value) Then
+            fieldValues.Add fld.Name, False
+            GoTo NextFieldValue
         End If
+        If IsOdooDateField(fld) Then
+            fieldValues.Add fld.Name, OdJsonRpc.FormatDate(fld.Value)
+            GoTo NextFieldValue
+        End If
+        If IsOdooDateTimeField(fld) Then
+            fieldValues.Add fld.Name, OdJsonRpc.ConvertToUtcDatetime(fld.Value)
+            GoTo NextFieldValue
+        End If
+        fieldValues.Add fld.Name, fld.Value
+NextFieldValue:
     Next fld
     
     ' Determine key and execute Upsert/Update/Create
@@ -737,6 +752,10 @@ End Function
 
 Private Function IsOdooField(fld As ADODB.Field) As Boolean
     IsOdooField = 0 = (fld.attributes And CBIT_NON_MODEL)
+End Function
+
+Private Function IsOdooPkField(fld As ADODB.Field) As Boolean
+    IsOdooPkField = 0 <> (fld.attributes And CATTR_PK_ID)
 End Function
 
 Private Function IsOdooMany2OneField(fld As ADODB.Field) As Boolean

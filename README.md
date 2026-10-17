@@ -284,10 +284,10 @@ When working with Date or Datetime fields in Odoo from VBA, note:
 
 * Odoo expects dates as strings in specific formats:
 * Date: `YYYY-MM-DD`
-* Datetime: `YYYY-MM-DDTHH:MM:SS`
+* Datetime: `YYYY-MM-DD HH:MM:SS`
 
 
-* Use `OdJsonRpc.FormatDate` / `OdJsonRpc.ConvertToIsoDatetime` when sending values, and `OdJsonRpc.ParseDate` / `OdJsonRpc.ParseIsoDatetime` when reading values.
+* Use `OdJsonRpc.FormatDate` / `OdJsonRpc.ConvertToUtcDatetime` when sending values, and `OdJsonRpc.ParseDate` / `OdJsonRpc.ParseUtcDatetime` when reading values.
 
 
 ## Credits
