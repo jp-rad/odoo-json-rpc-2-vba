@@ -131,7 +131,7 @@ Private Sub ExecuteTutrial(oRepo As OdxRepository)
 
             End With
             
-            .AddField "layout_background"
+            '.AddField "layout_background"
 
             .AddExternalIdField ' (option) External ID
         End With

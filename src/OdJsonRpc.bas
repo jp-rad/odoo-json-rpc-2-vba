@@ -80,7 +80,7 @@ End Function
 ' @param aDateString Date string to parse
 ' @return Date Parsed date value
 ''
-Public Function ParseDate(aDateString As String) As Date
+Public Function ParseDate(ByVal aDateString As String) As Date
     ParseDate = CDate(aDateString)
 End Function
 
@@ -103,38 +103,50 @@ End Function
 Public Function ParseUtcDatetime(ByVal aUtcString As String) As Date
     ParseUtcDatetime = WebHelpers.ParseUtc(CDate(aUtcString))
 End Function
-
 ''
-' Checks whether a given value is set (non-empty, non-null, and not False).
+' Assigns a value to a variable, using Set if it is an object, or Let otherwise.
 '
-' @param vValue Variant value to check
-' @return Boolean True if value is set
+' @param vVal1 Source value to assign
+' @param vVal2 Target variable to receive the value
+' @return Boolean True if assigned with Set, False if assigned with Let
 ''
-Function IsValueSet(ByVal vValue As Variant) As Boolean
-    If VarType(vValue) = vbBoolean Then
-        IsValueSet = (vValue <> False)
-    ElseIf IsNull(vValue) Then
-        IsValueSet = False
-    ElseIf IsObject(vValue) Then
-        If vValue Is Nothing Then
-            IsValueSet = False
-        Else
-            IsValueSet = True
-        End If
+Public Function LetOrSetValue(ByVal vVal1 As Variant, ByRef vVal2 As Variant) As Boolean
+    If IsObject(vVal1) Then
+        Set vVal2 = vVal1
+        LetOrSetValue = True
     Else
-        IsValueSet = True
+        vVal2 = vVal1
+        LetOrSetValue = False
     End If
 End Function
 
 ''
-' Returns the value if set, otherwise returns the specified default value.
+' Checks whether a given value is assigned (non-empty, non-null, and not False).
+'
+' @param vValue Variant value to check
+' @return Boolean True if the value is assigned
+''
+Public Function IsAssigned(ByVal vValue As Variant) As Boolean
+    If IsNull(vValue) Then
+        IsAssigned = False
+    ElseIf IsObject(vValue) Then
+        IsAssigned = Not (vValue Is Nothing)
+    ElseIf VarType(vValue) = vbBoolean Then
+        IsAssigned = CBool(vValue)
+    Else
+        IsAssigned = True
+    End If
+End Function
+
+''
+' Returns the value if it is assigned, otherwise returns the specified default value.
 '
 ' @param vValue Target value to evaluate
 ' @param aDefaultValue Default fallback value
 ' @return Variant Evaluated value or default
 ''
-Function ValueOrDefault(ByVal vValue As Variant, Optional ByVal aDefaultValue As Variant = "") As Variant
-    If IsValueSet(vValue) Then
+Public Function ValueOrDefault(ByVal vValue As Variant, ByVal aDefaultValue As Variant) As Variant
+    If IsAssigned(vValue) Then
         If IsObject(vValue) Then
             Set ValueOrDefault = vValue
         Else
@@ -148,14 +160,13 @@ Function ValueOrDefault(ByVal vValue As Variant, Optional ByVal aDefaultValue As
         End If
     End If
 End Function
-
 ''
 ' Performs a deep copy of a Dictionary object using JSON serialization.
 '
 ' @param dic Target Dictionary to copy
 ' @return Dictionary Cloned Dictionary instance
 ''
-Private Function DeepCopyDictionary(dic As Dictionary) As Dictionary
+Public Function DeepCopyDictionary(dic As Dictionary) As Dictionary
     Dim sJson As String
     Debug.Assert dic.CompareMode = BinaryCompare
     
@@ -163,6 +174,41 @@ Private Function DeepCopyDictionary(dic As Dictionary) As Dictionary
     Set DeepCopyDictionary = WebHelpers.ParseJson(sJson)
     
     Debug.Assert DeepCopyDictionary.CompareMode = dic.CompareMode
+End Function
+''
+' Converts a collection of values into a comma-separated string (CSV).
+'
+' @param col Collection of values to convert
+' @return String Comma-separated representation of the collection items
+''
+Public Function CollectionToCsv(col As Collection) As String
+    Dim s As String
+    Dim v As Variant
+    
+    s = ""
+    For Each v In col
+        If s <> "" Then s = s & ","
+        s = s & CStr(v)
+    Next v
+    
+    CollectionToCsv = s
+End Function
+
+''
+' Normalizes and converts line breaks in the target text between LF and CRLF.
+'
+' @param aTargetText Target string to process
+' @param aToCrLf Boolean True to convert line breaks to CRLF, False to keep them as LF
+' @return String Processed string with normalized line breaks
+''
+Public Function ReplaceCrLf(ByVal aTargetText As String, aToCrLf As Boolean) As String
+    aTargetText = Replace(aTargetText, vbCrLf, vbLf)
+    aTargetText = Replace(aTargetText, vbCr, vbLf)
+    If aToCrLf Then
+        ReplaceCrLf = Replace(aTargetText, vbLf, vbCrLf)
+    Else
+        ReplaceCrLf = aTargetText
+    End If
 End Function
 
 ''

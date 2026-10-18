@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- List View -->
+    <record id="view_vba_sample_list" model="ir.ui.view">
+        <field name="name">vba_json.sample.list</field>
+        <field name="model">vba_json.sample</field>
+        <field name="arch" type="xml">
+            <list string="VBA Samples">
+                <field name="name"/>
+                <field name="selection_field" widget="badge"/>
+                <field name="date_field"/>
+                <field name="monetary_field" widget="monetary"/>
+                <field name="many2one_field"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_vba_sample_form" model="ir.ui.view">
+        <field name="name">vba_json.sample.form</field>
+        <field name="model">vba_json.sample</field>
+        <field name="arch" type="xml">
+            <form string="VBA Sample">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Name..."/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Basic &amp; Numbers">
+                            <field name="boolean_field"/>
+                            <field name="char_field"/>
+                            <field name="integer_field"/>
+                            <field name="float_field"/>
+                            <field name="selection_field"/>
+                        </group>
+                        <group string="Dates &amp; Currency">
+                            <field name="date_field"/>
+                            <field name="datetime_field"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="monetary_field"/>
+                        </group>
+                    </group>
+                    <group string="Relations">
+                        <field name="many2one_field"/>
+                        <field name="many2many_field" widget="many2many_tags"/>
+                    </group>
+                    <notebook>
+                        <page string="Lines">
+                            <field name="one2many_field">
+                                <list editable="bottom">
+                                    <field name="name"/>
+                                    <field name="quantity"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Text &amp; HTML">
+                            <group>
+                                <field name="text_field"/>
+                                <field name="html_field" widget="html"/>
+                            </group>
+                        </page>
+                        <page string="Binary &amp; Others">
+                            <group>
+                                <field name="binary_field" filename="binary_filename"/>
+                                <field name="image_field" widget="image" class="oe_avatar"/>
+                                <field name="reference_field"/>
+                                <field name="ref_model"/>
+                                <field name="ref_id"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_vba_sample" model="ir.actions.act_window">
+        <field name="name">VBA Samples</field>
+        <field name="res_model">vba_json.sample</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first VBA sample record!
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu -->
+    <menuitem id="menu_vba_json_root" name="VBA JSON" sequence="10"/>
+    <menuitem id="menu_vba_sample" name="Samples" parent="menu_vba_json_root" action="action_vba_sample" sequence="10"/>
+</odoo>
