@@ -439,6 +439,7 @@ Public Sub ValuesToRecord(dicRecord As Dictionary)
             If IsNull(vFieldValue) Then
                 fld.Value = Null
             Else
+                ' filename, content, size
                 fld.Value = WebHelpers.ConvertToJson(vFieldValue)
             End If
             
@@ -543,7 +544,7 @@ Public Function RecordToValues() As Dictionary
             
         ' Binary fields
         Case "binary"
-            dicRecord.Add sFieldName, fld.Value
+            dicRecord.Add sFieldName, WebHelpers.ParseJson(fld.Value)
             
         Case Else
             Debug.Print "Not Supported for RecordToValues: " & sFieldName & " [" & sFieldType & "]"

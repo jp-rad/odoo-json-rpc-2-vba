@@ -163,11 +163,11 @@ End Sub
 '
 ' @param FilePath Path where the default configuration file should be created
 ''
-Private Sub CreateDefaultConfigFile(FilePath As String)
+Private Sub CreateDefaultConfigFile(filePath As String)
     Dim fileNum As Integer
     fileNum = FreeFile
     
-    Open FilePath For Output As #fileNum
+    Open filePath For Output As #fileNum
     Print #fileNum, "--------------------"
     Print #fileNum, " External API"
     Print #fileNum, "--------------------"

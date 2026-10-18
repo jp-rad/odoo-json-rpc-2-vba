@@ -212,6 +212,166 @@ Public Function ReplaceCrLf(ByVal aTargetText As String, aToCrLf As Boolean) As 
 End Function
 
 ''
+' Converts a byte array into a Base64 encoded string.
+' - Removes carriage returns and line feeds from the resulting text.
+'
+' @param byteArray Byte() Raw binary data to be encoded
+' @return String Clean Base64 encoded string
+' @throws Error if MSXML2.DOMDocument instantiation or encoding fails
+''
+Function BytesToBase64(byteArray() As Byte) As String
+    Dim dom As Object
+    Dim elem As Object
+    Dim b64Text As String
+    
+    Set dom = CreateObject("MSXML2.DOMDocument")
+    Set elem = dom.createElement("b64")
+    elem.DataType = "bin.base64"
+    elem.nodeTypedValue = byteArray
+    
+    b64Text = elem.Text
+    BytesToBase64 = Replace(Replace(b64Text, vbCr, ""), vbLf, "")
+End Function
+
+''
+' Converts a Base64 encoded string back into a byte array.
+'
+' @param base64Str String Base64 encoded string to decode
+' @return Byte() Decoded raw binary data as a byte array
+' @throws Error if MSXML2.DOMDocument instantiation or decoding fails
+''
+Function Base64ToBytes(base64Str As String) As Byte()
+    Dim dom As Object
+    Dim elem As Object
+    
+    Set dom = CreateObject("MSXML2.DOMDocument")
+    Set elem = dom.createElement("b64")
+    elem.DataType = "bin.base64"
+    elem.Text = base64Str
+    
+    Base64ToBytes = elem.nodeTypedValue
+End Function
+
+''
+' Detects the image file format from the beginning of a byte array.
+' - Analyzes magic numbers (file signatures) to identify common image types.
+'
+' @param fileBytes Byte() Raw binary data of the image file
+' @return String Image format/extension ("png", "jpg", "gif", "bmp", "webp", or "unknown")
+''
+Function GetImageFormat(fileBytes() As Byte) As String
+    Dim length As Long
+    
+    On Error GoTo ErrorHandler
+    length = UBound(fileBytes) - LBound(fileBytes) + 1
+    
+    ' Need at least 12 bytes for reliable detection (especially WebP)
+    If length < 12 Then
+        GetImageFormat = "unknown"
+        Exit Function
+    End If
+    
+    ' 1. PNG: 89 50 4E 47 0D 0A 1A 0A
+    If fileBytes(0) = &H89 And fileBytes(1) = &H50 And _
+       fileBytes(2) = &H4E And fileBytes(3) = &H47 And _
+       fileBytes(4) = &HD And fileBytes(5) = &HA And _
+       fileBytes(6) = &H1A And fileBytes(7) = &HA Then
+        GetImageFormat = "png"
+        Exit Function
+    End If
+    
+    ' 2. JPEG / JPG: FF D8 FF
+    If fileBytes(0) = &HFF And fileBytes(1) = &HD8 And fileBytes(2) = &HFF Then
+        GetImageFormat = "jpg"
+        Exit Function
+    End If
+    
+    ' 3. GIF: 47 49 46 38 ("GIF8")
+    If fileBytes(0) = &H47 And fileBytes(1) = &H49 And _
+       fileBytes(2) = &H46 And fileBytes(3) = &H38 Then
+        GetImageFormat = "gif"
+        Exit Function
+    End If
+    
+    ' 4. BMP: 42 4D ("BM")
+    If fileBytes(0) = &H42 And fileBytes(1) = &H4D Then
+        GetImageFormat = "bmp"
+        Exit Function
+    End If
+    
+    ' 5. WebP: RIFF....WEBP (Bytes 0-3: "RIFF", Bytes 8-11: "WEBP")
+    If fileBytes(0) = &H52 And fileBytes(1) = &H49 And _
+       fileBytes(2) = &H46 And fileBytes(3) = &H46 And _
+       fileBytes(8) = &H57 And fileBytes(9) = &H45 And _
+       fileBytes(10) = &H42 And fileBytes(11) = &H50 Then
+        GetImageFormat = "webp"
+        Exit Function
+    End If
+    
+    GetImageFormat = "unknown"
+    Exit Function
+
+ErrorHandler:
+    GetImageFormat = "unknown"
+End Function
+
+''
+' Reads a file from local disk and returns its contents as a byte array.
+'
+' @param filePath String Absolute or relative path to the source file
+' @return Byte() Binary contents of the loaded file
+' @throws Error if file does not exist or ADODB.Stream fails
+''
+Function LoadBinaryFile(filePath As String) As Byte()
+    Dim objStream As Object
+    
+    Set objStream = CreateObject("ADODB.Stream")
+    objStream.Type = 1 ' adTypeBinary
+    objStream.Open
+    objStream.LoadFromFile filePath
+    
+    LoadBinaryFile = objStream.Read()
+    objStream.Close
+End Function
+
+''
+' Writes a byte array into a file on local disk. Overwrites if file exists.
+'
+' @param filePath String Absolute or relative path where the file should be saved
+' @param fileBytes Byte() Binary data to write to disk
+' @throws Error if ADODB.Stream fails or disk write is unsuccessful
+''
+Sub SaveBinaryFile(filePath As String, fileBytes() As Byte)
+    Dim objStream As Object
+    
+    Set objStream = CreateObject("ADODB.Stream")
+    objStream.Type = 1 ' adTypeBinary
+    objStream.Open
+    objStream.Write fileBytes
+    objStream.SaveToFile filePath, 2 ' 2 = adSaveCreateOverWrite
+    objStream.Close
+End Sub
+
+''
+' Extracts only the filename and extension from a given file path.
+'
+' @param filePath String Full path to the file
+' @return String Filename component
+''
+Function ExtractFileName(filePath As String) As String
+    Dim pos1 As Long, pos2 As Long, lastPos As Long
+    pos1 = InStrRev(filePath, "\")
+    pos2 = InStrRev(filePath, "/")
+    If pos1 > pos2 Then lastPos = pos1 Else lastPos = pos2
+    
+    If lastPos > 0 Then
+        ExtractFileName = Mid$(filePath, lastPos + 1)
+    Else
+        ExtractFileName = filePath
+    End If
+End Function
+
+''
 ' ------------------------------------------------------------------------------
 ' Factory
 ' ------------------------------------------------------------------------------
