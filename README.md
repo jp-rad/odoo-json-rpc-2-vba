@@ -56,6 +56,38 @@ By abstracting low-level network communication and mapping remote Odoo models di
 | `UnlinkRecordByExternalId()` | Unlinks records for a given model based on External IDs. |
 
 
+## Odoo / ADODB Data Type Mapping
+
+| **Odoo Field** | **ADODB Field** | **Conversion Rules (JSON API ⇔ ADODB / VBA)** | **Supported** | 
+| :--- | :--- | :--- | :--: |
+| [*BASIC*](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#basic-fields) |  |  |  |
+| [**`Boolean`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Boolean) | `adBoolean` | Boolean logic value (`True` / `False`). | \[x\] | 
+| [**`Char`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Char) | `adVarWChar` (`-1`) | **Single-line text**. Line breaks (`\n`) are not allowed by Odoo specification. | \[x\] | 
+| [**`Float`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Float) | `adDouble` | Floating-point number. Mapped to VBA `Double` type. | \[x\] | 
+| [**`Integer`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Integer) | `adInteger` | 32-bit integer. Mapped to VBA `Long` type. | \[x\] | 
+| [*ADVANCED*](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#advanced-fields) |  |  |  |
+| [**`Html`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Html) | `adLongVarWChar` (`-1`) | HTML string. Line break rules are identical to `text`. HTML tags handled as needed. | \[x\] | 
+| [**`Monetary`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Monetary) | `adCurrency` | Currency amount. Uses VBA `Currency` type to avoid rounding errors. | \[x\] | 
+| [**`Selection`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Selection) | `adVarWChar` (`-1`) | Stores the internal key value (string or integer) of the selection. | \[x\] | 
+| [**`Text`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Text) | `adLongVarWChar` (`-1`) | **【Line Break Conversion】**  • Odoo $\rightarrow$ ADODB: Convert `\n` to `vbCrLf`  • ADODB $\rightarrow$ Odoo: Standardize `vbCrLf` / `vbCr` to `\n` | \[x\] |
+| [*DATE(TIME)*](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#date-time-fields) |  |  |  |
+| [**`Date`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Date) | `adDBDate` | Date value (`YYYY-MM-DD`). Converted via `CDate()` / `Format()`. | \[x\] | 
+| [**`Datetime`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Datetime) | `adDate` | **【Timezone Conversion】**  • Odoo $\rightarrow$ ADODB: Convert UTC to Local Time (**+9 hours** for JST)  • ADODB $\rightarrow$ Odoo: Subtract offset (**-9 hours**) to convert Local Time back to UTC string | \[x\] | 
+| [*RELATIONAL*](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#relational-fields) |  |  |  |
+| [**`Many2one`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Many2one) | `adInteger` (ID)  \+ `adVarWChar` (Name) | Appends two fields in Recordset: **ID (Integer)** and **Display Name (String)**.  Unset values (`false`/`null`) handled as `Null` or `0`. | \[x\] | 
+| [**`One2many`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.One2many) | `adLongVarWChar` (`-1`) | Stores related IDs as a **JSON array string** (e.g., `"[1, 2, 3]"`). | \[x\] | 
+| [**`Many2many`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Many2many) | `adLongVarWChar` (`-1`) | Same as `one2many`, stored as a **JSON array string**. | \[x\] | 
+| [**`Command`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Command) |  |  |  |
+| [*PSEUDO*](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#pseudo-relational-fields) |  |  |  |
+| [**`Reference`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Reference) |  |  |  |
+| [**`Many2oneReference`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Many2oneReference) |  |  |  |
+| [*BINARY*](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#binary-fields) |  |  |  |
+| [**`Binary`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Binary) | `adLongVarWChar` (`-1`) | **Base64 encoded string**. Decoded in VBA when outputting as a raw binary file/stream. | \[x\] | 
+| [**`Image`**](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Image) | `adLongVarWChar` (`-1`) | **Base64 encoded string**. Decoded in VBA when outputting as a raw binary file/stream. | \[x\] | 
+
+*(Note: `DefinedSize := -1` indicates an unconstrained string length for `adVarWChar` and `adLongVarWChar`)*
+
+
 ## API Version Support & Repository Creation
 
 This library supports both APIs for communicating with Odoo:

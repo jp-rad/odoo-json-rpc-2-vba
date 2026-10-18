@@ -41,6 +41,7 @@ Option Explicit
 ''
 Public Sub RegisterSpecs(Suite As TestSuite, aType2 As Boolean)
     SpecOdxModelRemoteSync Suite, aType2
+    SpecVbaJsonSampleRemoteSync Suite, aType2
 End Sub
 
 ''
@@ -156,6 +157,157 @@ Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
         .IsEqual partnerRecords(1)("partner_latitude"), False
         '.IsEqual partnerRecords(1)("offline_since"), False
         .IsEqual partnerRecords(1)("comment"), "<p>Now populated</p>"
+        
+        ' ----------------------------------------------------------------------
+        ' 3. Cleanup: Unlink current record
+        ' ----------------------------------------------------------------------
+        Set unlinkRes = model.UnlinkCurrentRecordRemote()
+        
+        .NotUndefined unlinkRes
+        .IsEqual CStr(unlinkRes("action")), "unlinked"
+        .IsEqual CLng(unlinkRes("id")), createdId
+        
+    End With
+End Sub
+
+''
+' Tests for OdxModel remote synchronization methods using vba_json.sample
+' with comprehensive coverage across various Odoo data types (Boolean, Char, Float, Integer, Selection, Date, Datetime).
+'
+' @param Suite TestSuite instance
+' @param aType2 Boolean flag indicating whether to use Type2 repository
+''
+Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
+    Dim repo As OdxRepository
+    Dim model As OdxModel
+    
+    Set repo = CreateOdxRepository(aType2)
+    Set model = New OdxModel
+    model.InitBase repo, "vba_json.sample"
+    model.AddExternalIdField
+    model.AddField "name"
+    
+    model.AddField "boolean_field"
+    model.AddField "char_field"
+    model.AddField "float_field"
+    model.AddField "integer_field"
+    
+    model.AddField "html_field"
+    model.AddField "currency_id"
+    model.AddField "monetary_field"
+    model.AddField "selection_field"
+    model.AddField "text_field"
+    
+    model.AddField "date_field"
+    model.AddField "datetime_field"
+    
+    model.AddField "many2one_field"
+    model.AddField "one2many_field"
+    model.AddField "many2many_field"
+    
+    model.AddField "reference_field"
+    model.AddField "ref_model"
+    model.AddField "ref_id"
+    
+    model.AddField "binary_field"
+    model.AddField "image_field"
+    
+    With Suite.Test("TestVbaJsonSampleRemoteSync - Comprehensive Field Types Coverage")
+        
+        Dim testExternalId As String
+        Dim existingMap As Dictionary
+        Dim fetchCount As Long
+        Dim upsertRes As Dictionary
+        Dim unlinkRes As Dictionary
+        Dim rs As ADODB.Recordset
+        Dim createdId As Long
+        Dim sampleRecords As Collection
+        Dim fieldsToRead As New Collection
+        
+        testExternalId = "SpecVbaJsonSample.test_remote_sync_all_types"
+        
+        ' ----------------------------------------------------------------------
+        ' 0. Pre-cleanup (remove orphaned records if any)
+        ' ----------------------------------------------------------------------
+        Set existingMap = repo.GetModelAndIdFromExternalId(testExternalId)
+        If Not existingMap Is Nothing Then
+            repo.UnlinkRecord "vba_json.sample", existingMap("res_id")
+        End If
+        
+        fetchCount = model.FetchSearchAndReadRemote()
+        
+        ' ----------------------------------------------------------------------
+        ' 1. Test: Create record with diverse data types
+        ' ----------------------------------------------------------------------
+        Set rs = model.Recordset
+        
+        rs.AddNew
+        rs("id").Value = -1
+        rs("name").Value = "VBA Sample Test Record"
+        rs("boolean_field").Value = True
+        rs("char_field").Value = "Custom Char Value"
+        rs("float_field").Value = 456.78
+        rs("integer_field").Value = 42
+        rs("selection_field").Value = "in_progress"
+        rs("date_field").Value = DateSerial(2026, 10, 18)
+        rs("datetime_field").Value = DateSerial(2026, 10, 18) + TimeSerial(12, 34, 56)
+        rs(model.ExternalIdFieldName).Value = testExternalId
+        rs.Update
+        
+        rs.MoveLast
+        
+        Set upsertRes = model.UpsertCurrentRecordRemote()
+        
+        .NotUndefined upsertRes
+        .IsEqual CStr(upsertRes("action")), "created"
+        .NotEqual CLng(upsertRes("id")), 0
+        
+        createdId = CLng(upsertRes("id"))
+        .IsEqual CLng(rs("id").Value), createdId
+        
+        ' Verify creation values remotely
+        fieldsToRead.Add "boolean_field"
+        fieldsToRead.Add "char_field"
+        fieldsToRead.Add "float_field"
+        fieldsToRead.Add "integer_field"
+        fieldsToRead.Add "selection_field"
+        fieldsToRead.Add "date_field"
+        fieldsToRead.Add "datetime_field"
+        
+        Set sampleRecords = repo.ReadRecord("vba_json.sample", createdId, fieldsToRead)
+        .IsEqual sampleRecords.Count, 1
+        
+        .IsEqual sampleRecords(1)("boolean_field"), True
+        .IsEqual sampleRecords(1)("char_field"), "Custom Char Value"
+        .IsEqual sampleRecords(1)("float_field"), 456.78
+        .IsEqual sampleRecords(1)("integer_field"), 42
+        .IsEqual sampleRecords(1)("selection_field"), "in_progress"
+        .IsEqual sampleRecords(1)("date_field"), "2026-10-18"
+        ' Note: Datetime format comparison can be adjusted depending on Odoo return format (e.g., UTC string)
+        
+        ' ----------------------------------------------------------------------
+        ' 2. Test: Update record fields (e.g., change selection and float values)
+        ' ----------------------------------------------------------------------
+        rs.MoveLast
+        Debug.Assert rs("id").Value = createdId
+        rs("selection_field").Value = "done"
+        rs("float_field").Value = 999.99
+        rs("boolean_field").Value = False
+        rs.Update
+        
+        Set upsertRes = model.UpsertCurrentRecordRemote()
+        
+        .NotUndefined upsertRes
+        .IsEqual CStr(upsertRes("action")), "updated"
+        .IsEqual CLng(upsertRes("id")), createdId
+        
+        ' Verify updated values remotely
+        Set sampleRecords = repo.ReadRecord("vba_json.sample", createdId, fieldsToRead)
+        .IsEqual sampleRecords.Count, 1
+        
+        .IsEqual sampleRecords(1)("boolean_field"), False
+        .IsEqual sampleRecords(1)("float_field"), 999.99
+        .IsEqual sampleRecords(1)("selection_field"), "done"
         
         ' ----------------------------------------------------------------------
         ' 3. Cleanup: Unlink current record
