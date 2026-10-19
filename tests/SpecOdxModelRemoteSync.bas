@@ -34,6 +34,8 @@ Option Explicit
 '   - On failure: Raises a runtime error.
 ' ------------------------------------------------------------------------------
 
+Private Const CTEMP_FOLDER As String = "C:\Temp"
+Private Const CTEST_PDF    As String = "C:\Temp\test.pdf"
 ''
 ' Register and run all OdxRepository test specifications across different repository types.
 '
@@ -129,7 +131,7 @@ Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
         
         .IsEqual partnerRecords(1)("phone"), "+1-555-9999"
         .IsEqual partnerRecords(1)("partner_latitude"), 42.195
-        '.IsEqual ParseUtcDatetime(partnerRecords(1)("offline_since")), DateSerial(2026, 6, 1) + TimeSerial(12, 34, 56)
+        '.IsEqual ParseDatetime(partnerRecords(1)("offline_since")), DateSerial(2026, 6, 1) + TimeSerial(12, 34, 56)
         .IsEqual partnerRecords(1)("comment"), False
         
         ' ----------------------------------------------------------------------
@@ -189,6 +191,8 @@ Private Sub SaveFile(aBinaryDict As Dictionary, aPath As String)
     End If
     
     OdJsonRpc.SaveBinaryFile aPath & "\" & sFilename, bContent
+    
+    Debug.Print "[SpecOdxModelRemoteSync] SaveFile: " & aPath & "\" & sFilename
 End Sub
 
 Private Function LoadFile(aFilePath As String) As Dictionary
@@ -214,6 +218,10 @@ End Function
 Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
     Dim repo As OdxRepository
     Dim model As OdxModel
+    
+    If Dir(CTEMP_FOLDER, vbDirectory) = "" Then
+        MkDir CTEMP_FOLDER
+    End If
     
     Set repo = CreateOdxRepository(aType2)
     Set model = New OdxModel
@@ -273,8 +281,8 @@ Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
         
         If fetchCount > 0 Then
             Set rs = model.Recordset
-            SaveFile WebHelpers.ParseJson(rs.Fields("binary_field").Value), "c:\temp"
-            SaveFile WebHelpers.ParseJson(rs.Fields("image_field")), "c:\temp"
+            SaveFile WebHelpers.ParseJson(rs.Fields("binary_field").Value), CTEMP_FOLDER
+            SaveFile WebHelpers.ParseJson(rs.Fields("image_field")), CTEMP_FOLDER
         End If
         
         ' ----------------------------------------------------------------------
@@ -301,7 +309,7 @@ Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
         
         ' Date(time) fields
         rs("date_field").Value = DateSerial(2026, 10, 18)
-        rs("datetime_field").Value = DateSerial(2026, 10, 18) + TimeSerial(15, 30, 0)
+        rs("datetime_field").Value = DateSerial(2026, 10, 18) + TimeSerial(15, 30, 0)   ' +9 hours for JST
         
         ' Relational fields
         rs("many2one_field").Value = 1
@@ -313,7 +321,7 @@ Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
         rs("ref_id").Value = 1
         
         ' Binary fields
-        rs("binary_field").Value = WebHelpers.ConvertToJson(LoadFile("c:\temp\test.pdf"))
+        rs("binary_field").Value = WebHelpers.ConvertToJson(LoadFile(CTEST_PDF))
         ' rs("image_field").Value = ...
         
         rs(model.ExternalIdFieldName).Value = testExternalId
@@ -372,7 +380,7 @@ Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
         .IsEqual sampleRecords(1)("text_field"), "Line 1: Text field" & vbCrLf & "Line 2: Multi-line text"
         
         .IsEqual sampleRecords(1)("date_field"), "2026-10-18"
-        .IsEqual sampleRecords(1)("datetime_field"), "2026-10-18 06:30:00"
+        .IsEqual sampleRecords(1)("datetime_field"), "2026-10-18 06:30:00"  ' UTC (-9 hours)
         
         .IsEqual ConvertToJson(sampleRecords(1)("many2one_field")), "[1,""YourCompany""]"
         .IsEqual ConvertToJson(sampleRecords(1)("many2many_field")), "[5,4,3,2,1]"

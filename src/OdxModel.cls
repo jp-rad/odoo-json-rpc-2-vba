@@ -374,7 +374,7 @@ Public Sub ValuesToRecord(dicRecord As Dictionary)
             If IsNull(vFieldValue) Then
                 fld.Value = Null
             Else
-                fld.Value = OdJsonRpc.ParseUtcDatetime(vFieldValue)
+                fld.Value = OdJsonRpc.ParseDatetime(vFieldValue)
             End If
             
         ' Relational fields
@@ -519,7 +519,7 @@ Public Function RecordToValues() As Dictionary
             dicRecord.Add sFieldName, OdJsonRpc.FormatDate(fld.Value)
             
         Case "datetime"
-            dicRecord.Add sFieldName, OdJsonRpc.ConvertToUtcDatetime(fld.Value)
+            dicRecord.Add sFieldName, OdJsonRpc.FormatDatetime(fld.Value)
             
         ' Relational fields
         Case "many2one"
