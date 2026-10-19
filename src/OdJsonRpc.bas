@@ -85,24 +85,40 @@ Public Function ParseDate(ByVal aDateString As String) As Date
 End Function
 
 ''
-' Converts a Date value to an UTC datetime string format.
+' Formats a local Date value into an Odoo UTC datetime string format.
 '
-' @param aDatetime Date value to convert
+' @param aDatetime Local Date value to convert
+' @param convertToUtc Optional. Whether to convert to UTC (default: True)
 ' @return String UTC datetime string
 ''
-Public Function ConvertToUtcDatetime(aDatetime As Date) As String
-    ConvertToUtcDatetime = Format(WebHelpers.ConvertToUtc(aDatetime), "yyyy-mm-dd hh:MM:ss")
+Public Function FormatDatetime(ByVal aDatetime As Date, Optional ByVal convertToUtc As Boolean = True) As String
+    Dim targetDate As Date
+    If convertToUtc Then
+        targetDate = WebHelpers.convertToUtc(aDatetime)
+    Else
+        targetDate = aDatetime
+    End If
+    FormatDatetime = Format(targetDate, "yyyy-mm-dd hh:nn:ss")
 End Function
 
 ''
-' Parses an UTC datetime string into a Date type.
+' Parses an Odoo UTC datetime string into a local Date type.
 '
 ' @param aUtcString UTC datetime string
-' @return Date Parsed datetime value
+' @param convertToLocal Optional. Whether to convert to local time (default: True)
+' @return Date Parsed local datetime value
 ''
-Public Function ParseUtcDatetime(ByVal aUtcString As String) As Date
-    ParseUtcDatetime = WebHelpers.ParseUtc(CDate(aUtcString))
+Public Function ParseDatetime(ByVal aUtcString As String, Optional ByVal convertToLocal As Boolean = True) As Date
+    Dim parsedDate As Date
+    parsedDate = CDate(aUtcString)
+    
+    If convertToLocal Then
+        ParseDatetime = WebHelpers.ParseUtc(parsedDate)
+    Else
+        ParseDatetime = parsedDate
+    End If
 End Function
+
 ''
 ' Assigns a value to a variable, using Set if it is an object, or Let otherwise.
 '
