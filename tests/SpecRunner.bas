@@ -34,28 +34,21 @@ Option Explicit
 ''
 ' Main Test Runner Entrypoint for all suites.
 ''
-Public Sub RunSpecsAll()
-    Dim Suite As New TestSuite
-    Suite.Description = "OdClient/Od2Client Test Suite"
-        
-    ' Register specs from external spec modules
-    SpecOdFilter.RegisterSpecs Suite
-    SpecJsonUtils.RegisterSpecs Suite
-    SpecOdJsonRpc.RegisterSpecs Suite
+Public Sub DoAll()
+    DoAllType1
+    DoAllType2
+End Sub
 
-    SpecOdClient.RegisterSpecs Suite
-    SpecOdRepository.RegisterSpecs Suite
-    
-    SpecOdxRepository.RegisterSpecs Suite, False
-    SpecOdxModelRemoteSync.RegisterSpecs Suite, False
-    
-    SpecOd2Client.RegisterSpecs Suite
-    SpecOd2Repository.RegisterSpecs Suite
-    
-    SpecOdxRepository.RegisterSpecs Suite, True
-    SpecOdxModelRemoteSync.RegisterSpecs Suite, True
-    
-    PrintSummary Suite
+Public Sub DoAllType1()
+    DoTutorialExternalApi1
+    DoTutrialOdxModel
+    RunSpecsType1
+End Sub
+
+Public Sub DoAllType2()
+    DoTutorialExternalApi2
+    DoTutrialOdxModel2
+    RunSpecsType2
 End Sub
 
 ''

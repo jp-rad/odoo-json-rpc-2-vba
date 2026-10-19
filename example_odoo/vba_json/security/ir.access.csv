@@ -1,0 +1,3 @@
+id,name,model_id,group_id/id,operation,domain
+access_vba_json_sample_default,vba_json.sample.default,vba_json.sample,base.group_user,crud,
+access_vba_json_sample_line_default,vba_json.sample.line.default,vba_json.sample.line,base.group_user,crud,

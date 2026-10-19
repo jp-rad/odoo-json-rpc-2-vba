@@ -45,19 +45,16 @@ Option Explicit
 ' ==============================================================================
 ''
 
-Private Const CBIT_NON_MODEL    As Long = &H100000  ' bit20 - non-model property (e.g., display name, external id)
-Private Const CBIT_M2O          As Long = &H200000  ' bit21 - many2one
-Private Const CBIT_O2M          As Long = &H400000  ' bit22 - one2many
-Private Const CBIT_M2M          As Long = &H800000  ' bit23 - many2many
-Private Const CBIT_NULLABLE     As Long = FieldAttributeEnum.adFldMayBeNull ' Enable NULLs via adFldMayBeNull even for Odoo's required fields.
+Private Const CBIT_MODEL          As Long = &H100000  ' bit20 - model property
+Private Const CBIT_XML_ID         As Long = &H200000  ' bit21 - external id
+Private Const CBIT_PK_ID          As Long = FieldAttributeEnum.adFldKeyColumn
+Private Const CBIT_NULLABLE       As Long = FieldAttributeEnum.adFldMayBeNull ' Enable NULLs via adFldMayBeNull even for Odoo's required fields.
+Private Const CBIT_FIELD          As Long = FieldAttributeEnum.adFldUpdatable Or FieldAttributeEnum.adFldIsNullable
 
-Private Const CATTR_PK_ID        As Long = FieldAttributeEnum.adFldKeyColumn
-Private Const CATTR_FIELD        As Long = FieldAttributeEnum.adFldUpdatable _
-                                           Or FieldAttributeEnum.adFldIsNullable   ' Force adFldIsNullable to allow NULLs in the Recordset regardless of DB constraints.
-Private Const CATTR_NON_MODEL As Long = CATTR_FIELD Or CBIT_NON_MODEL
-Private Const CATTR_M2O          As Long = CATTR_FIELD Or CBIT_M2O
-Private Const CATTR_O2M          As Long = CATTR_FIELD Or CBIT_O2M
-Private Const CATTR_M2M          As Long = CATTR_FIELD Or CBIT_M2M
+Private Const CATTR_PK_ID         As Long = CBIT_PK_ID
+Private Const CATTR_XML_ID        As Long = CBIT_FIELD Or CBIT_XML_ID
+Private Const CATTR_MODEL         As Long = CBIT_FIELD Or CBIT_MODEL
+Private Const CATTR_NON_MODEL     As Long = CBIT_FIELD
 
 Private Const CODOO_ATTR_NAME     As String = "name"
 Private Const CODOO_ATTR_STRING   As String = "string"
@@ -73,9 +70,11 @@ Private Const CEXTERNAL_ID As String = "external_id"
 ' Filtering by this value guarantees the Recordset becomes empty.
 Private Const CMISSING_ID As Long = -1
 
-Private mRepository As OdxRepository
 Private mRs As ADODB.Recordset
+
+Private mRepository As OdxRepository
 Private mModelName As String
+Private mModelFields As Dictionary
 
 Private mRelations As Dictionary    ' key: relation field name, value: OdxModel
 Private mFKeyFieldName As String    ' for one2many: foreign key field name
@@ -122,6 +121,7 @@ Public Sub InitBase(aRepository As OdxRepository, aModelName As String)
     mFKeyFieldName = ""
     Set mRelationMap = Nothing
     mModelType = mtBase
+    Set mModelFields = mRepository.ModelSchema(aModelName)
 End Sub
 
 Public Sub InitMany2One(aRepository As OdxRepository, aModelName As String)
@@ -193,7 +193,7 @@ Public Sub AddExternalIdField(Optional aFieldName As String = CEXTERNAL_ID)
     End If
     
     ' Append a non-model external ID field to the local Recordset structure
-    mRs.Fields.Append Name:=aFieldName, Type:=adVarWChar, DefinedSize:=-1, Attrib:=CATTR_NON_MODEL
+    mRs.Fields.Append Name:=aFieldName, Type:=adVarWChar, DefinedSize:=-1, Attrib:=CATTR_XML_ID
     mExternalIdFieldName = aFieldName
 End Sub
 
@@ -274,17 +274,287 @@ Public Sub UpsertMany2Many(aId As Long, aFkId As Long)
     colIds.Add aFkId
 End Sub
 
-Private Function CollectionToCsv(col As Collection) As String
-    Dim s As String
-    Dim v As Variant
+''
+' Updates the current record of the local Recordset with a single record dictionary (Values).
+' Safely handles object types for vVal and checks null/false beforehand.
+'
+' @param dicRecord Dictionary of a single record fetched from Odoo
+''
+Public Sub ValuesToRecord(dicRecord As Dictionary)
+    Dim nId As Long
+    Dim fld As ADODB.Field
+    Dim sFieldName As String
+    Dim sFieldType As String
+    Dim vFieldValue As Variant
     
-    s = ""
-    For Each v In col
-        If s <> "" Then s = s & ","
-        s = s & CStr(v)
-    Next v
+    Dim dsRelation As OdxModel
+    Dim colValue As Collection
+    Dim itemValue As Variant
+    Dim nRelatedId As Long
+    Dim sRelatedDisplayName As String
     
-    CollectionToCsv = s
+    nId = dicRecord("id")
+    
+    For Each fld In mRs.Fields
+        sFieldName = fld.Name
+        
+        ' ID
+        If IsOdooPkField(fld) Then
+            Debug.Assert fld.Value = nId
+            GoTo CONTINUE_FIELD
+        End If
+        ' External ID
+        If IsExternalIdField(fld) Then
+            fld.Value = mRepository.GetExternalIdFromModelAndId(mModelName, nId)
+            GoTo CONTINUE_FIELD
+        End If
+        
+        ' not odoo fields
+        If Not IsOdooField(fld) Then
+            GoTo CONTINUE_FIELD
+        End If
+        
+        sFieldType = mModelFields(sFieldName)(CODOO_ATTR_TYPE)
+        
+        ' Check null / false
+        OdJsonRpc.LetOrSetValue OdJsonRpc.ValueOrDefault(dicRecord(sFieldName), False), vFieldValue
+        If VarType(vFieldValue) = vbBoolean Then
+            If sFieldType <> "boolean" Then
+                If vFieldValue = False Then
+                    vFieldValue = Null
+                End If
+            End If
+        End If
+        
+        ' odoo fields
+        Select Case sFieldType
+        ' Basic fields
+        Case "boolean":
+            fld.Value = vFieldValue
+            
+        Case "char":
+            fld.Value = vFieldValue
+            
+        Case "float":
+            fld.Value = vFieldValue
+            
+        Case "integer":
+            fld.Value = vFieldValue
+            
+        ' Advanced fields
+        Case "html":
+            If IsNull(vFieldValue) Then
+                fld.Value = Null
+            Else
+                fld.Value = OdJsonRpc.ReplaceCrLf(vFieldValue, True)
+            End If
+            
+        Case "monetary":
+            fld.Value = vFieldValue
+                        
+        Case "selection":
+            fld.Value = vFieldValue
+            
+        Case "text":
+            If IsNull(vFieldValue) Then
+                fld.Value = Null
+            Else
+                fld.Value = OdJsonRpc.ReplaceCrLf(vFieldValue, True)
+            End If
+            
+        ' Date(time) fields
+        Case "date":
+            If IsNull(vFieldValue) Then
+                fld.Value = Null
+            Else
+                fld.Value = OdJsonRpc.ParseDate(vFieldValue)
+            End If
+            
+        Case "datetime":
+            If IsNull(vFieldValue) Then
+                fld.Value = Null
+            Else
+                fld.Value = OdJsonRpc.ParseUtcDatetime(vFieldValue)
+            End If
+            
+        ' Relational fields
+        Case "many2one":
+            If IsNull(vFieldValue) Then
+                fld.Value = Null
+                GetDisplayNameField(mRs, sFieldName).Value = Null
+            Else
+                Set colValue = vFieldValue
+                nRelatedId = colValue(1)
+                fld.Value = nRelatedId
+                sRelatedDisplayName = colValue(2)
+                GetDisplayNameField(mRs, sFieldName).Value = sRelatedDisplayName
+                
+                If mRelations.Exists(sFieldName) Then
+                    Set dsRelation = mRelations(sFieldName)
+                    dsRelation.UpsertMany2One nRelatedId
+                End If
+            End If
+            
+        Case "one2many":
+            If IsNull(vFieldValue) Then
+                fld.Value = Null
+            Else
+                Set colValue = vFieldValue
+                fld.Value = "[" & OdJsonRpc.CollectionToCsv(colValue) & "]"
+                
+                If mRelations.Exists(sFieldName) Then
+                    Set dsRelation = mRelations(sFieldName)
+                    For Each itemValue In colValue
+                        nRelatedId = itemValue
+                        dsRelation.UpsertOne2Many nId, nRelatedId
+                    Next itemValue
+                End If
+            End If
+            
+        Case "many2many":
+            If IsNull(vFieldValue) Then
+                fld.Value = Null
+            Else
+                Set colValue = vFieldValue
+                fld.Value = "[" & CollectionToCsv(colValue) & "]"
+                
+                If mRelations.Exists(sFieldName) Then
+                    Set dsRelation = mRelations(sFieldName)
+                    For Each itemValue In colValue
+                        nRelatedId = itemValue
+                        dsRelation.UpsertMany2Many nId, nRelatedId
+                    Next itemValue
+                End If
+            End If
+            
+        ' Pseudo-relational fields
+        Case "reference"
+            fld.Value = vFieldValue
+            
+        Case "many2one_reference"
+            fld.Value = vFieldValue
+            
+        ' Binary fields
+        Case "binary"
+            If IsNull(vFieldValue) Then
+                fld.Value = Null
+            Else
+                ' filename, content, size
+                fld.Value = WebHelpers.ConvertToJson(vFieldValue)
+            End If
+            
+        Case Else
+            Debug.Print "Not Supported: " & sFieldName & " [" & sFieldType & "]"
+            Debug.Assert False
+        End Select
+        
+CONTINUE_FIELD:
+    Next fld
+End Sub
+
+''
+' Converts the current record of the local Recordset into a Dictionary
+' suitable for Odoo API requests, mapping explicitly to each Odoo field type.
+'
+' @return Dictionary representing the record values
+''
+Public Function RecordToValues() As Dictionary
+    Dim dicRecord As Dictionary
+    Set dicRecord = New Dictionary
+    
+    Dim fld As ADODB.Field
+    Dim sFieldName As String
+    Dim sFieldType As String
+    
+    For Each fld In mRs.Fields
+        sFieldName = fld.Name
+        
+        ' ID field
+        If IsOdooPkField(fld) Then
+            GoTo CONTINUE_FIELD
+        End If
+        
+        ' External ID or non-Odoo fields
+        If IsExternalIdField(fld) Or Not IsOdooField(fld) Then
+            GoTo CONTINUE_FIELD
+        End If
+        
+        ' null
+        If IsNull(fld.Value) Then
+            dicRecord.Add sFieldName, False
+            GoTo CONTINUE_FIELD
+        End If
+        
+        ' Explicit Case mapping symmetric to ValuesToRecord
+        sFieldType = mModelFields(sFieldName)(CODOO_ATTR_TYPE)
+        Select Case sFieldType
+        ' Basic fields
+        Case "boolean"
+            dicRecord.Add sFieldName, CBool(fld.Value)
+            
+        Case "char"
+            dicRecord.Add sFieldName, CStr(fld.Value)
+            
+        Case "float"
+            dicRecord.Add sFieldName, CDbl(fld.Value)
+            
+        Case "integer"
+            dicRecord.Add sFieldName, CLng(fld.Value)
+            
+        ' Advanced fields
+        Case "html"
+            dicRecord.Add sFieldName, ReplaceCrLf(fld.Value, False)
+            
+        Case "monetary"
+            dicRecord.Add sFieldName, CDbl(fld.Value)
+            
+        Case "selection"
+            dicRecord.Add sFieldName, CStr(fld.Value)
+            
+        Case "text"
+            dicRecord.Add sFieldName, ReplaceCrLf(fld.Value, False)
+            
+        ' Date(time) fields
+        Case "date"
+            dicRecord.Add sFieldName, OdJsonRpc.FormatDate(fld.Value)
+            
+        Case "datetime"
+            dicRecord.Add sFieldName, OdJsonRpc.ConvertToUtcDatetime(fld.Value)
+            
+        ' Relational fields
+        Case "many2one"
+            dicRecord.Add sFieldName, CLng(fld.Value)
+            
+        Case "one2many"
+            ' Recordset typically stores these as CSV/JSON string (e.g., "[1, 2, 3]").
+            ' Odoo write expects an array of IDs or command tuples, usually a Collection or Array.
+            dicRecord.Add sFieldName, WebHelpers.ParseJson(fld.Value)
+            
+        Case "many2many"
+            ' Recordset typically stores these as CSV/JSON string (e.g., "[1, 2, 3]").
+            ' Odoo write expects an array of IDs or command tuples, usually a Collection or Array.
+            dicRecord.Add sFieldName, WebHelpers.ParseJson(fld.Value)
+            
+        ' Pseudo-relational fields
+        Case "reference"
+            dicRecord.Add sFieldName, fld.Value
+            
+        Case "many2one_reference"
+            dicRecord.Add sFieldName, fld.Value
+            
+        ' Binary fields
+        Case "binary"
+            dicRecord.Add sFieldName, WebHelpers.ParseJson(fld.Value)
+            
+        Case Else
+            Debug.Print "Not Supported for RecordToValues: " & sFieldName & " [" & sFieldType & "]"
+            Debug.Assert False
+        End Select
+        
+CONTINUE_FIELD:
+    Next fld
+    
+    Set RecordToValues = dicRecord
 End Function
 
 ''
@@ -298,8 +568,11 @@ Private Sub UpsertRecordSet(colResult As Collection)
     
     Dim nId As Long
     Dim fld As ADODB.Field
+    Dim isNullValue As Boolean
     Dim colValue As Collection
     Dim v As Variant
+    
+    Dim sFieldType As String
     
     Dim nRelatedId As Long
     Dim sRelatedDisplayName As String
@@ -308,62 +581,7 @@ Private Sub UpsertRecordSet(colResult As Collection)
         nId = dicRecord("id")
         MoveFirstOrAddNewRecord nId
         
-        For Each fld In mRs.Fields
-            If Not IsOdooField(fld) Then
-                If fld.Name = mExternalIdFieldName Then
-                    fld.Value = mRepository.GetExternalIdFromModelAndId(mModelName, nId)
-                End If
-                GoTo CONTINUE_FOR_EACH
-            End If
-            If fld.Type = adBoolean Then
-                fld.Value = dicRecord(fld.Name)
-                GoTo CONTINUE_FOR_EACH
-            End If
-            If VarType(dicRecord(fld.Name)) = vbBoolean Then
-                GoTo CONTINUE_FOR_EACH
-            End If
-            
-            If IsOdooMany2OneField(fld) Then
-                Set colValue = dicRecord(fld.Name)
-                nRelatedId = colValue(1)
-                fld.Value = nRelatedId
-                sRelatedDisplayName = colValue(2)
-                GetDisplayNameField(mRs, fld.Name).Value = sRelatedDisplayName
-                
-                Set dsRelation = mRelations(fld.Name)
-                dsRelation.UpsertMany2One nRelatedId
-                
-            ElseIf IsOdooOne2ManyField(fld) Then
-                Set colValue = dicRecord(fld.Name)
-                fld.Value = "[" & CollectionToCsv(colValue) & "]"
-                
-                Set dsRelation = mRelations(fld.Name)
-                For Each v In colValue
-                    nRelatedId = v
-                    dsRelation.UpsertOne2Many nId, nRelatedId
-                Next v
-                
-            ElseIf IsOdooMany2ManyField(fld) Then
-                Set colValue = dicRecord(fld.Name)
-                fld.Value = "[" & CollectionToCsv(colValue) & "]"
-                
-                Set dsRelation = mRelations(fld.Name)
-                For Each v In colValue
-                    nRelatedId = v
-                    dsRelation.UpsertMany2Many nId, nRelatedId
-                Next v
-                
-            ElseIf IsOdooDateField(fld) Then
-                fld.Value = ParseDate(dicRecord(fld.Name))
-            ElseIf IsOdooDateTimeField(fld) Then
-                fld.Value = ParseUtcDatetime(dicRecord(fld.Name))
-            ElseIf IsObject(dicRecord(fld.Name)) Then
-                fld.Value = WebHelpers.ConvertToJson(dicRecord(fld.Name))
-            Else
-                fld.Value = dicRecord(fld.Name)
-            End If
-CONTINUE_FOR_EACH:
-        Next fld
+        ValuesToRecord dicRecord
         
         mRs.Update
     Next dicRecord
@@ -486,27 +704,7 @@ Public Function UpsertCurrentRecordRemote() As Dictionary
     hasExternalIdField = mExternalIdFieldName <> ""
     
     ' Collect field values for the current record
-    Set fieldValues = New Dictionary
-    For Each fld In mRs.Fields
-        If IsOdooPkField(fld) Then GoTo NextFieldValue
-        If Not IsOdooField(fld) Then GoTo NextFieldValue
-        If IsOdooOne2ManyField(fld) Then GoTo NextFieldValue
-        If IsOdooMany2ManyField(fld) Then GoTo NextFieldValue
-        If IsNull(fld.Value) Then
-            fieldValues.Add fld.Name, False
-            GoTo NextFieldValue
-        End If
-        If IsOdooDateField(fld) Then
-            fieldValues.Add fld.Name, OdJsonRpc.FormatDate(fld.Value)
-            GoTo NextFieldValue
-        End If
-        If IsOdooDateTimeField(fld) Then
-            fieldValues.Add fld.Name, OdJsonRpc.ConvertToUtcDatetime(fld.Value)
-            GoTo NextFieldValue
-        End If
-        fieldValues.Add fld.Name, fld.Value
-NextFieldValue:
-    Next fld
+    Set fieldValues = RecordToValues()
     
     ' Determine key and execute Upsert/Update/Create
     If hasExternalIdField Then
@@ -692,34 +890,20 @@ Public Sub ClearFilter()
     SafetyMoveFirst
 End Sub
 
-Private Function LetOrSetValue(v1 As Variant, ByRef v2 As Variant)
-    If IsObject(v1) Then
-        Set v2 = v1
-    Else
-        v2 = v1
-    End If
-End Function
-
 Private Function GetFieldValueOrDefault(aFieldName As String, aDefault As Variant) As Variant
-On Error GoTo ErrHandler
     Dim fld As ADODB.Field
     
-    LetOrSetValue aDefault, GetFieldValueOrDefault
-    
     If mRs.BOF Or mRs.EOF Then
-        GoTo ExitProc
+        OdJsonRpc.LetOrSetValue aDefault, GetFieldValueOrDefault
+        Exit Function
     End If
     
     Set fld = mRs.Fields(aFieldName)
-    If Not IsNull(fld.Value) Then
-        LetOrSetValue fld.Value, GetFieldValueOrDefault
+    If IsNull(fld.Value) Then
+        OdJsonRpc.LetOrSetValue aDefault, GetFieldValueOrDefault
+    Else
+        OdJsonRpc.LetOrSetValue fld.Value, GetFieldValueOrDefault
     End If
-ExitProc:
-    Exit Function
-ErrHandler:
-    Debug.Print Err.Description
-    Debug.Assert False
-    Resume ExitProc
 End Function
 
 Public Function GetRelatedModel(aFieldName As String, Optional optNotFiltered As Boolean = False) As OdxModel
@@ -750,40 +934,24 @@ ExitProc:
     Exit Function
 End Function
 
-Private Function IsOdooField(fld As ADODB.Field) As Boolean
-    IsOdooField = 0 = (fld.attributes And CBIT_NON_MODEL)
+Private Function FormatDisplayName(aFieldName As String) As String
+    FormatDisplayName = aFieldName & CDISPLAY_NAME
 End Function
 
 Private Function IsOdooPkField(fld As ADODB.Field) As Boolean
     IsOdooPkField = 0 <> (fld.attributes And CATTR_PK_ID)
 End Function
 
-Private Function IsOdooMany2OneField(fld As ADODB.Field) As Boolean
-    IsOdooMany2OneField = 0 <> (fld.attributes And CBIT_M2O)
+Private Function IsExternalIdField(fld As ADODB.Field) As Boolean
+    IsExternalIdField = 0 <> (fld.attributes And CBIT_XML_ID)
 End Function
 
-Private Function IsOdooOne2ManyField(fld As ADODB.Field) As Boolean
-    IsOdooOne2ManyField = 0 <> (fld.attributes And CBIT_O2M)
-End Function
-
-Private Function IsOdooMany2ManyField(fld As ADODB.Field) As Boolean
-    IsOdooMany2ManyField = 0 <> (fld.attributes And CBIT_M2M)
-End Function
-
-Private Function IsOdooNullableField(fld As ADODB.Field) As Boolean
-    IsOdooNullableField = 0 <> (fld.attributes And CBIT_NULLABLE)
+Private Function IsOdooField(fld As ADODB.Field) As Boolean
+    IsOdooField = 0 <> (fld.attributes And CBIT_MODEL)
 End Function
 
 Private Function IsOdooRequiredField(fld As ADODB.Field) As Boolean
-    IsOdooRequiredField = Not IsOdooNullableField(fld)
-End Function
-
-Private Function IsOdooDateField(fld As ADODB.Field) As Boolean
-    IsOdooDateField = adDBDate = fld.Type
-End Function
-
-Private Function IsOdooDateTimeField(fld As ADODB.Field) As Boolean
-    IsOdooDateTimeField = adDate = fld.Type
+    IsOdooRequiredField = 0 = (fld.attributes And CBIT_NULLABLE)
 End Function
 
 Private Function CreateNewRecordSet() As ADODB.Recordset
@@ -795,64 +963,66 @@ Private Function CreateNewRecordSet() As ADODB.Recordset
     End With
 End Function
 
-Private Function FormatDisplayName(aFieldName As String) As String
-    FormatDisplayName = aFieldName & CDISPLAY_NAME
-End Function
-
 Private Function AddRecordsetField(rs As ADODB.Recordset, dicModelField As Dictionary) As ADODB.Field
     Dim sFieldName As String
     Dim sFieldType As String
-    Dim attrOdooNullable As Long
+    Dim nFieldAttr As Long
     
     Debug.Assert dicModelField.Exists(CODOO_ATTR_NAME)
     sFieldName = dicModelField(CODOO_ATTR_NAME)
     If dicModelField.Exists(CODOO_ATTR_REQUIRED) Then
-        attrOdooNullable = IIf(dicModelField(CODOO_ATTR_REQUIRED), 0, CBIT_NULLABLE)
+        nFieldAttr = IIf(dicModelField(CODOO_ATTR_REQUIRED), 0, CBIT_NULLABLE)
     Else
-        attrOdooNullable = CBIT_NULLABLE
+        nFieldAttr = CBIT_NULLABLE
     End If
+    nFieldAttr = nFieldAttr Or CATTR_MODEL
     Debug.Assert dicModelField.Exists(CODOO_ATTR_TYPE)
     sFieldType = dicModelField(CODOO_ATTR_TYPE)
     
     Select Case sFieldType
-        Case "many2one"
-            rs.Fields.Append Name:=sFieldName, Type:=adInteger, Attrib:=CATTR_M2O Or attrOdooNullable
-            rs.Fields.Append Name:=FormatDisplayName(sFieldName), Type:=adVarWChar, DefinedSize:=-1, Attrib:=CATTR_NON_MODEL
-
-        Case "one2many"
-            rs.Fields.Append Name:=sFieldName, Type:=adLongVarWChar, DefinedSize:=-1, Attrib:=CATTR_O2M Or attrOdooNullable
-
-        Case "many2many"
-            rs.Fields.Append Name:=sFieldName, Type:=adLongVarWChar, DefinedSize:=-1, Attrib:=CATTR_M2M Or attrOdooNullable
-
-        Case "char", "selection"
-            rs.Fields.Append Name:=sFieldName, Type:=adVarWChar, DefinedSize:=-1, Attrib:=CATTR_FIELD Or attrOdooNullable
-
-        Case "text", "html", "json", "binary", "properties"
-            rs.Fields.Append Name:=sFieldName, Type:=adLongVarWChar, DefinedSize:=-1, Attrib:=CATTR_FIELD Or attrOdooNullable
-
+        ' Basic fields
         Case "boolean"
-            rs.Fields.Append Name:=sFieldName, Type:=adBoolean, Attrib:=CATTR_FIELD Or attrOdooNullable
-
-        Case "integer"
-            rs.Fields.Append Name:=sFieldName, Type:=adInteger, Attrib:=CATTR_FIELD Or attrOdooNullable
-
+            rs.Fields.Append Name:=sFieldName, Type:=adBoolean, Attrib:=nFieldAttr
+        Case "char"
+            rs.Fields.Append Name:=sFieldName, Type:=adVarWChar, DefinedSize:=-1, Attrib:=nFieldAttr
         Case "float"
-            rs.Fields.Append Name:=sFieldName, Type:=adDouble, Attrib:=CATTR_FIELD Or attrOdooNullable
-
+            rs.Fields.Append Name:=sFieldName, Type:=adDouble, Attrib:=nFieldAttr
+        Case "integer"
+            rs.Fields.Append Name:=sFieldName, Type:=adInteger, Attrib:=nFieldAttr
+        'Advanced fields
+        Case "html"
+            rs.Fields.Append Name:=sFieldName, Type:=adLongVarWChar, DefinedSize:=-1, Attrib:=nFieldAttr
         Case "monetary"
-            rs.Fields.Append Name:=sFieldName, Type:=adCurrency, Attrib:=CATTR_FIELD Or attrOdooNullable
-
+            rs.Fields.Append Name:=sFieldName, Type:=adCurrency, Attrib:=nFieldAttr
+        Case "selection"
+            rs.Fields.Append Name:=sFieldName, Type:=adVarWChar, DefinedSize:=-1, Attrib:=nFieldAttr
+        Case "text"
+            rs.Fields.Append Name:=sFieldName, Type:=adLongVarWChar, DefinedSize:=-1, Attrib:=nFieldAttr
+        'Date(time) fields
         Case "date"
-            rs.Fields.Append Name:=sFieldName, Type:=adDBDate, Attrib:=CATTR_FIELD Or attrOdooNullable
-        
+            rs.Fields.Append Name:=sFieldName, Type:=adDBDate, Attrib:=nFieldAttr
         Case "datetime"
-            rs.Fields.Append Name:=sFieldName, Type:=adDate, Attrib:=CATTR_FIELD Or attrOdooNullable
-
+            rs.Fields.Append Name:=sFieldName, Type:=adDate, Attrib:=nFieldAttr
+        ' Relational fields
+        Case "many2one"
+            rs.Fields.Append Name:=sFieldName, Type:=adInteger, Attrib:=nFieldAttr
+            rs.Fields.Append Name:=FormatDisplayName(sFieldName), Type:=adVarWChar, DefinedSize:=-1, Attrib:=CATTR_NON_MODEL
+        Case "one2many"
+            rs.Fields.Append Name:=sFieldName, Type:=adLongVarWChar, DefinedSize:=-1, Attrib:=nFieldAttr
+        Case "many2many"
+            rs.Fields.Append Name:=sFieldName, Type:=adLongVarWChar, DefinedSize:=-1, Attrib:=nFieldAttr
+        ' Pseudo-relational fields
+        Case "reference"
+            rs.Fields.Append Name:=sFieldName, Type:=adVarWChar, DefinedSize:=-1, Attrib:=nFieldAttr
+        Case "many2one_reference"
+            rs.Fields.Append Name:=sFieldName, Type:=adVarWChar, DefinedSize:=-1, Attrib:=nFieldAttr
+        ' Binary fields
+        Case "binary"   ' Binary/Image
+            rs.Fields.Append Name:=sFieldName, Type:=adLongVarWChar, DefinedSize:=-1, Attrib:=nFieldAttr
         Case Else
             Debug.Print "Unknown type:", sFieldType, sFieldName
             Debug.Assert False
-            rs.Fields.Append Name:=sFieldName, Type:=adVarWChar, DefinedSize:=-1, Attrib:=CATTR_FIELD Or attrOdooNullable
+            rs.Fields.Append Name:=sFieldName, Type:=adVarWChar, DefinedSize:=-1, Attrib:=nFieldAttr
     End Select
 
 ExitProc:
@@ -864,13 +1034,12 @@ Private Function GetDisplayNameField(rs As ADODB.Recordset, aFieldName As String
 End Function
 
 Private Function AddRecordsetFieldAndRelatedModel(aRs As ADODB.Recordset, aModelName As String, aFieldName As String) As OdxModel
-    Dim dicModelFields As Dictionary
     Dim dicModelField As Dictionary
     
-    Set dicModelFields = mRepository.ModelSchema(aModelName)
-    Debug.Assert Not dicModelFields Is Nothing
-    Debug.Assert dicModelFields.Exists(aFieldName)
-    Set dicModelField = dicModelFields(aFieldName)
+    If Not mModelFields.Exists(aFieldName) Then
+        Err.Raise ERR_API_EXECUTION, "OdxModel", "Unknown field '" & aFieldName & "' in model '" & mModelName & "'."
+    End If
+    Set dicModelField = mModelFields(aFieldName)
     
     AddRecordsetField aRs, dicModelField
     Set AddRecordsetFieldAndRelatedModel = CreateRelatedModelOrNothing(dicModelField)
@@ -886,19 +1055,18 @@ Private Function CreateRelatedModelOrNothing(dicModelField As Dictionary) As Odx
     sFieldType = dicModelField(CODOO_ATTR_TYPE)
     
     Select Case sFieldType
+        ' Relational fields
         Case "many2one"
             Set oModel = New OdxModel
             oModel.InitMany2One mRepository, sRelationModelName
-            
         Case "one2many"
             sFKeyFieldName = dicModelField(CODOO_ATTR_FKEY)
             Set oModel = New OdxModel
             oModel.InitOne2Many mRepository, sRelationModelName, sFKeyFieldName
-            
         Case "many2many"
             Set oModel = New OdxModel
             oModel.InitMany2Many mRepository, sRelationModelName
-            
+        ' (Others)
         Case Else
             Set oModel = Nothing
     End Select
