@@ -63,7 +63,10 @@ Private Const CODOO_ATTR_RELATION As String = "relation"
 Private Const CODOO_ATTR_FKEY     As String = "relation_field"   ' foreign key
 Private Const CODOO_ATTR_REQUIRED As String = "required"
 
-Private Const CDISPLAY_NAME As String = "_display_name_"
+Private Const CFIELD_DISPLAY_NAME As String = "_display_name_"
+Private Const CFIELD_MODEL_NAME   As String = "_model_name_"
+Private Const CFIELD_FILENAME     As String = "_filename_"
+
 Private Const CEXTERNAL_ID As String = "external_id"
 
 ' Odoo IDs are always positive integers, so we use -1 as an impossible ID.
@@ -274,6 +277,62 @@ Public Sub UpsertMany2Many(aId As Long, aFkId As Long)
     colIds.Add aFkId
 End Sub
 
+Public Function ValueToMany2OneField(aFieldValue As Variant, aIdField As ADODB.Field, aDisplayNameField As ADODB.Field) As Boolean
+    If IsNull(aFieldValue) Then
+        aIdField.Value = Null
+        aDisplayNameField.Value = Null
+        ValueToMany2OneField = False
+        Exit Function
+    End If
+    
+    Dim colValue As Collection
+    
+    Set colValue = aFieldValue
+    Debug.Assert colValue.Count = 2
+    aIdField.Value = colValue(1)
+    aDisplayNameField.Value = colValue(2)
+    
+    ValueToMany2OneField = True
+End Function
+
+Public Function ValueToReferenceField(aFieldValue As Variant, aIdField As ADODB.Field, aModelField As ADODB.Field) As Boolean
+    If IsNull(aFieldValue) Then
+        aModelField.Value = Null
+        aIdField.Value = Null
+        ValueToReferenceField = False
+        Exit Function
+    End If
+    
+    Dim sValueList() As String
+    
+    sValueList = Split(CStr(aFieldValue), ",")
+    Debug.Assert UBound(sValueList) > 0
+    Debug.Assert IsNumeric(sValueList(1))
+    
+    aModelField.Value = Trim(sValueList(0))
+    aIdField.Value = CLng(sValueList(1))
+    
+    ValueToReferenceField = True
+End Function
+
+Public Function ValueToBinaryField(aFieldValue As Variant, aBinaryField As ADODB.Field, aFilenameField As ADODB.Field) As Boolean
+    If IsNull(aFieldValue) Then
+        aBinaryField.Value = Null
+        aFilenameField.Value = Null
+        ValueToBinaryField = False
+        Exit Function
+    End If
+    
+    Dim binaryDict As Dictionary
+    Set binaryDict = aFieldValue
+    
+    aFilenameField.Value = binaryDict("filename")
+    aBinaryField.Value = OdJsonRpc.Base64ToBytes(binaryDict("content"))
+    Debug.Assert aBinaryField.ActualSize = binaryDict("size")
+    
+    ValueToBinaryField = True
+End Function
+
 ''
 ' Updates the current record of the local Recordset with a single record dictionary (Values).
 ' Safely handles object types for vVal and checks null/false beforehand.
@@ -283,6 +342,7 @@ End Sub
 Public Sub ValuesToRecord(dicRecord As Dictionary)
     Dim nId As Long
     Dim fld As ADODB.Field
+    Dim fld2 As ADODB.Field
     Dim sFieldName As String
     Dim sFieldType As String
     Dim vFieldValue As Variant
@@ -290,8 +350,6 @@ Public Sub ValuesToRecord(dicRecord As Dictionary)
     Dim dsRelation As OdxModel
     Dim colValue As Collection
     Dim itemValue As Variant
-    Dim nRelatedId As Long
-    Dim sRelatedDisplayName As String
     
     nId = dicRecord("id")
     
@@ -379,19 +437,10 @@ Public Sub ValuesToRecord(dicRecord As Dictionary)
             
         ' Relational fields
         Case "many2one":
-            If IsNull(vFieldValue) Then
-                fld.Value = Null
-                GetDisplayNameField(mRs, sFieldName).Value = Null
-            Else
-                Set colValue = vFieldValue
-                nRelatedId = colValue(1)
-                fld.Value = nRelatedId
-                sRelatedDisplayName = colValue(2)
-                GetDisplayNameField(mRs, sFieldName).Value = sRelatedDisplayName
-                
+            If ValueToMany2OneField(vFieldValue, fld, GetDisplayNameField(mRs, sFieldName)) Then
                 If mRelations.Exists(sFieldName) Then
                     Set dsRelation = mRelations(sFieldName)
-                    dsRelation.UpsertMany2One nRelatedId
+                    dsRelation.UpsertMany2One fld.Value
                 End If
             End If
             
@@ -405,8 +454,7 @@ Public Sub ValuesToRecord(dicRecord As Dictionary)
                 If mRelations.Exists(sFieldName) Then
                     Set dsRelation = mRelations(sFieldName)
                     For Each itemValue In colValue
-                        nRelatedId = itemValue
-                        dsRelation.UpsertOne2Many nId, nRelatedId
+                        dsRelation.UpsertOne2Many nId, CLng(itemValue)
                     Next itemValue
                 End If
             End If
@@ -421,27 +469,21 @@ Public Sub ValuesToRecord(dicRecord As Dictionary)
                 If mRelations.Exists(sFieldName) Then
                     Set dsRelation = mRelations(sFieldName)
                     For Each itemValue In colValue
-                        nRelatedId = itemValue
-                        dsRelation.UpsertMany2Many nId, nRelatedId
+                        dsRelation.UpsertMany2Many nId, CLng(itemValue)
                     Next itemValue
                 End If
             End If
             
         ' Pseudo-relational fields
         Case "reference"
-            fld.Value = vFieldValue
+            ValueToReferenceField vFieldValue, fld, GetModelNameField(mRs, sFieldName)
             
         Case "many2one_reference"
             fld.Value = vFieldValue
             
         ' Binary fields
         Case "binary"
-            If IsNull(vFieldValue) Then
-                fld.Value = Null
-            Else
-                ' filename, content, size
-                fld.Value = WebHelpers.ConvertToJson(vFieldValue)
-            End If
+            ValueToBinaryField vFieldValue, fld, GetFilenameField(mRs, sFieldName)
             
         Case Else
             Debug.Print "Not Supported: " & sFieldName & " [" & sFieldType & "]"
@@ -451,6 +493,23 @@ Public Sub ValuesToRecord(dicRecord As Dictionary)
 CONTINUE_FIELD:
     Next fld
 End Sub
+
+Sub ReferenceFieldToValue(aIdField As ADODB.Field, aModelField As ADODB.Field, aTargetDict As Dictionary)
+    aTargetDict(aIdField.Name) = CStr(aModelField.Value) & "," & CStr(aIdField.Value)
+End Sub
+
+Public Function BinaryFieldToValue(aBinaryField As ADODB.Field, aFilenameField As ADODB.Field, aTargetDict As Dictionary) As Boolean
+    Dim binaryDict As New Dictionary
+    If Not IsNull(aFilenameField.Value) Then
+        If Not IsEmpty(aFilenameField.Value) Then
+            binaryDict("filename") = CStr(aFilenameField.Value)
+        End If
+    End If
+    binaryDict("content") = OdJsonRpc.BytesToBase64(aBinaryField.Value)
+    binaryDict("size") = aBinaryField.ActualSize
+    
+    Set aTargetDict(aBinaryField.Name) = binaryDict
+End Function
 
 ''
 ' Converts the current record of the local Recordset into a Dictionary
@@ -537,14 +596,14 @@ Public Function RecordToValues() As Dictionary
             
         ' Pseudo-relational fields
         Case "reference"
-            dicRecord.Add sFieldName, fld.Value
+            ReferenceFieldToValue fld, GetModelNameField(mRs, sFieldName), dicRecord
             
         Case "many2one_reference"
             dicRecord.Add sFieldName, fld.Value
             
         ' Binary fields
         Case "binary"
-            dicRecord.Add sFieldName, WebHelpers.ParseJson(fld.Value)
+            BinaryFieldToValue fld, GetFilenameField(mRs, sFieldName), dicRecord
             
         Case Else
             Debug.Print "Not Supported for RecordToValues: " & sFieldName & " [" & sFieldType & "]"
@@ -934,10 +993,6 @@ ExitProc:
     Exit Function
 End Function
 
-Private Function FormatDisplayName(aFieldName As String) As String
-    FormatDisplayName = aFieldName & CDISPLAY_NAME
-End Function
-
 Private Function IsOdooPkField(fld As ADODB.Field) As Boolean
     IsOdooPkField = 0 <> (fld.attributes And CATTR_PK_ID)
 End Function
@@ -952,6 +1007,30 @@ End Function
 
 Private Function IsOdooRequiredField(fld As ADODB.Field) As Boolean
     IsOdooRequiredField = 0 = (fld.attributes And CBIT_NULLABLE)
+End Function
+
+Private Function FormatFieldDisplayName(aFieldName As String) As String
+    FormatFieldDisplayName = aFieldName & CFIELD_DISPLAY_NAME
+End Function
+
+Private Function FormatFieldModelName(aFieldName As String) As String
+    FormatFieldModelName = aFieldName & CFIELD_MODEL_NAME
+End Function
+
+Private Function FormatFieldFilename(aFieldName As String) As String
+    FormatFieldFilename = aFieldName & CFIELD_FILENAME
+End Function
+
+Private Function GetDisplayNameField(rs As ADODB.Recordset, aFieldName As String) As ADODB.Field
+    Set GetDisplayNameField = rs.Fields(FormatFieldDisplayName(aFieldName))
+End Function
+
+Private Function GetModelNameField(rs As ADODB.Recordset, aFieldName As String) As ADODB.Field
+    Set GetModelNameField = rs.Fields(FormatFieldModelName(aFieldName))
+End Function
+
+Private Function GetFilenameField(rs As ADODB.Recordset, aFieldName As String) As ADODB.Field
+    Set GetFilenameField = rs.Fields(FormatFieldFilename(aFieldName))
 End Function
 
 Private Function CreateNewRecordSet() As ADODB.Recordset
@@ -1006,19 +1085,21 @@ Private Function AddRecordsetField(rs As ADODB.Recordset, dicModelField As Dicti
         ' Relational fields
         Case "many2one"
             rs.Fields.Append Name:=sFieldName, Type:=adInteger, Attrib:=nFieldAttr
-            rs.Fields.Append Name:=FormatDisplayName(sFieldName), Type:=adVarWChar, DefinedSize:=-1, Attrib:=CATTR_NON_MODEL
+            rs.Fields.Append Name:=FormatFieldDisplayName(sFieldName), Type:=adVarWChar, DefinedSize:=-1, Attrib:=CATTR_NON_MODEL
         Case "one2many"
             rs.Fields.Append Name:=sFieldName, Type:=adLongVarWChar, DefinedSize:=-1, Attrib:=nFieldAttr
         Case "many2many"
             rs.Fields.Append Name:=sFieldName, Type:=adLongVarWChar, DefinedSize:=-1, Attrib:=nFieldAttr
         ' Pseudo-relational fields
         Case "reference"
-            rs.Fields.Append Name:=sFieldName, Type:=adVarWChar, DefinedSize:=-1, Attrib:=nFieldAttr
+            rs.Fields.Append Name:=sFieldName, Type:=adInteger, Attrib:=nFieldAttr
+            rs.Fields.Append Name:=FormatFieldModelName(sFieldName), Type:=adVarWChar, DefinedSize:=-1, Attrib:=CATTR_NON_MODEL
         Case "many2one_reference"
             rs.Fields.Append Name:=sFieldName, Type:=adVarWChar, DefinedSize:=-1, Attrib:=nFieldAttr
         ' Binary fields
         Case "binary"   ' Binary/Image
-            rs.Fields.Append Name:=sFieldName, Type:=adLongVarWChar, DefinedSize:=-1, Attrib:=nFieldAttr
+            rs.Fields.Append Name:=sFieldName, Type:=adLongVarBinary, DefinedSize:=-1, Attrib:=nFieldAttr
+            rs.Fields.Append Name:=FormatFieldFilename(sFieldName), Type:=adVarWChar, DefinedSize:=-1, Attrib:=CATTR_NON_MODEL
         Case Else
             Debug.Print "Unknown type:", sFieldType, sFieldName
             Debug.Assert False
@@ -1027,10 +1108,6 @@ Private Function AddRecordsetField(rs As ADODB.Recordset, dicModelField As Dicti
 
 ExitProc:
     Set AddRecordsetField = rs.Fields(sFieldName)
-End Function
-
-Private Function GetDisplayNameField(rs As ADODB.Recordset, aFieldName As String) As ADODB.Field
-    Set GetDisplayNameField = rs.Fields(FormatDisplayName(aFieldName))
 End Function
 
 Private Function AddRecordsetFieldAndRelatedModel(aRs As ADODB.Recordset, aModelName As String, aFieldName As String) As OdxModel
