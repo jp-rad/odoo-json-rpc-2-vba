@@ -77,13 +77,14 @@ By abstracting low-level network communication and mapping remote Odoo models di
 | **[`Many2one`](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Many2one)** | `adInteger` (ID) <br>+ `adVarWChar` (Name) | Appends two fields in Recordset: **ID (Integer)** and **Display Name (String)**. Unset values handled as `Null` or `0`. | [x] |
 | **[`One2many`](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.One2many)** | `adLongVarWChar` | Stores related IDs as a **JSON array string** (e.g., `"[1, 2, 3]"`). | [x] |
 | **[`Many2many`](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Many2many)** | `adLongVarWChar` | Same as `one2many`, stored as a **JSON array string**. | [x] |
-| **[`Command`](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Command)** |   | **Not supported** for direct ADODB Recordset mapping. |   |
+| **[`Command`](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Command)** |   | **Not supported** |   |
 | *[PSEUDO](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#pseudo-relational-fields)* |  |  |  |
-| **[`Reference`](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Reference)** | `adVarWChar` | Stores the reference value as a string (e.g., `"res.partner,1"`). | [x] |
+| **[`Reference`](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Reference)** | `adInteger` (ID) <br>+ `adVarWChar` (Model) | Appends two fields in Recordset: Target **ID (Integer)** and Target **Model Name (String)**. | [x] |
 | **[`Many2oneReference`](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Many2oneReference)** | `adInteger` | Stores the target record ID as an integer. | [x] |
 | *[BINARY](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#binary-fields)* |  |  |  |
-| **[`Binary`](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Binary)** | `adLongVarWChar` | **JSON string** containing `filename`, `content` (Base64 encoded string), and `size`. | [x] |
-| **[`Image`](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Image)** | `adLongVarWChar` | **JSON string** containing `content` (Base64 encoded string) and `size`. | [x] |
+| **[`Binary`](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Binary)** | `adLongVarBinary` (Content) <br>+ `adVarWChar` (Filename) | Appends binary file **Content (`adLongVarBinary`)** and **Filename (`adVarWChar`)** fields. | [x] |
+| **[`Image`](https://www.odoo.com/documentation/master/developer/reference/backend/orm.html#odoo.fields.Image)** | `adLongVarBinary` (Content) <br>+ `adVarWChar` (Filename) | Appends image **Content (`adLongVarBinary`)** and **Filename (`adVarWChar`, always null)** fields. | [x] |
+
 
 *(Note: For `adVarWChar` and `adLongVarWChar`, there is theoretically no maximum length restriction, but practical limits apply)*
 

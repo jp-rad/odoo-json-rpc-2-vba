@@ -35,7 +35,7 @@ Option Explicit
 ' ------------------------------------------------------------------------------
 
 Private Const CTEMP_FOLDER As String = "C:\Temp"
-Private Const CTEST_PDF    As String = "C:\Temp\test.pdf"
+Private Const CTEST_PDF    As String = "test.pdf"
 ''
 ' Register and run all OdxRepository test specifications across different repository types.
 '
@@ -172,41 +172,26 @@ Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
     End With
 End Sub
 
-Private Sub SaveFile(aBinaryDict As Dictionary, aPath As String)
-    Dim nSize As Long
+Private Sub SaveFile(aContentField As ADODB.Field, aFilenameField As ADODB.Field, aPath As String)
     Dim bContent() As Byte
     Dim sFilename As String
     
-    nSize = aBinaryDict("size")
-    bContent = OdJsonRpc.Base64ToBytes(aBinaryDict("content"))
-    Debug.Assert nSize = UBound(bContent) - LBound(bContent) + 1
+    bContent = aContentField.Value
     
-    If aBinaryDict.Exists("filename") Then
-        sFilename = aBinaryDict("filename")
-    Else
+    If IsNull(aFilenameField.Value) Then
         sFilename = ""
+    Else
+        sFilename = Trim(aFilenameField.Value)
     End If
-    If Trim(sFilename) = "" Then
-        sFilename = "image_file_" & CStr(nSize) & "." & OdJsonRpc.GetImageFormat(bContent)
+    If sFilename = "" Then
+        sFilename = "image_file_" & CStr(UBound(bContent) + 1) & "." & OdJsonRpc.GetImageFormat(bContent)
     End If
+    sFilename = aPath & "\" & sFilename
     
-    OdJsonRpc.SaveBinaryFile aPath & "\" & sFilename, bContent
+    OdJsonRpc.SaveBinaryFile sFilename, bContent
     
-    Debug.Print "[SpecOdxModelRemoteSync] SaveFile: " & aPath & "\" & sFilename
+    Debug.Print "[SpecOdxModelRemoteSync] SaveFile: " & sFilename
 End Sub
-
-Private Function LoadFile(aFilePath As String) As Dictionary
-    Dim resultDict As New Dictionary
-    Dim bContent() As Byte
-    
-    bContent = OdJsonRpc.LoadBinaryFile(aFilePath)
-    
-    resultDict("filename") = OdJsonRpc.ExtractFileName(aFilePath)
-    resultDict("content") = OdJsonRpc.BytesToBase64(bContent)
-    resultDict("size") = UBound(bContent) - LBound(bContent) + 1
-    
-    Set LoadFile = resultDict
-End Function
 
 ''
 ' Tests for OdxModel remote synchronization methods using vba_json.sample
@@ -281,8 +266,8 @@ Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
         
         If fetchCount > 0 Then
             Set rs = model.Recordset
-            SaveFile WebHelpers.ParseJson(rs.Fields("binary_field").Value), CTEMP_FOLDER
-            SaveFile WebHelpers.ParseJson(rs.Fields("image_field")), CTEMP_FOLDER
+            SaveFile rs.Fields("binary_field"), rs.Fields("binary_field_filename_"), CTEMP_FOLDER
+            SaveFile rs.Fields("image_field"), rs.Fields("image_field_filename_"), CTEMP_FOLDER
         End If
         
         ' ----------------------------------------------------------------------
@@ -316,12 +301,15 @@ Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
         rs("many2many_field").Value = "[1, 4, 3, 2, 5]"
         
         ' Pseudo-relational fields (Reference)
-        rs("reference_field").Value = "res.partner,1"
+        rs("reference_field").Value = 1
+        rs("reference_field_model_name_").Value = "res.partner"
         rs("ref_model").Value = "res.users"
         rs("ref_id").Value = 1
         
         ' Binary fields
-        rs("binary_field").Value = WebHelpers.ConvertToJson(LoadFile(CTEST_PDF))
+        rs("binary_field").Value = OdJsonRpc.LoadBinaryFile(CTEMP_FOLDER & "\" & CTEST_PDF)
+        rs("binary_field_filename_").Value = CTEST_PDF
+        
         ' rs("image_field").Value = ...
         
         rs(model.ExternalIdFieldName).Value = testExternalId
@@ -389,7 +377,7 @@ Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
         .IsEqual sampleRecords(1)("ref_model"), "res.users"
         .IsEqual sampleRecords(1)("ref_id"), 1
         
-        .IsEqual sampleRecords(1)("binary_field")("filename"), "test.pdf"
+        .IsEqual sampleRecords(1)("binary_field")("filename"), CTEST_PDF
         .IsEqual sampleRecords(1)("image_field"), False
         
         ' ----------------------------------------------------------------------
@@ -398,6 +386,7 @@ Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
         rs.MoveLast
         rs("selection_field").Value = "done"
         rs("integer_field").Value = 200
+        rs("binary_field").Value = Null
         rs.Update
         
         Set upsertRes = model.UpsertCurrentRecordRemote()
@@ -406,6 +395,7 @@ Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
         Set sampleRecords = repo.ReadRecord("vba_json.sample", createdId, fieldsToRead)
         .IsEqual sampleRecords(1)("selection_field"), "done"
         .IsEqual sampleRecords(1)("integer_field"), 200
+        .IsEqual sampleRecords(1)("binary_field"), False
         
         ' ----------------------------------------------------------------------
         ' 4. Cleanup: Unlink current record
