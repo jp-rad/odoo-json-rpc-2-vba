@@ -3,7 +3,7 @@ example	../src/ExampleOd2Tutrial.bas
 example	../src/ExampleOdTutrial.bas
 example	../src/ExampleOdxTutrial.bas
 example	../src/JsonUtils.bas
-library	../src/OdJsonRpc.bas
+library	../src/OdRpc.bas
 example	../src/OdxFactory.bas
 tests	../tests/SpecJsonUtils.bas
 tests	../tests/SpecOd2Client.bas
@@ -12,6 +12,7 @@ tests	../tests/SpecOdClient.bas
 tests	../tests/SpecOdFilter.bas
 tests	../tests/SpecOdJsonRpc.bas
 tests	../tests/SpecOdRepository.bas
+tests	../tests/SpecOdxMemRs.bas
 tests	../tests/SpecOdxModelRemoteSync.bas
 tests	../tests/SpecOdxRepository.bas
 tests	../tests/SpecRunner.bas
@@ -28,6 +29,7 @@ library	../src/OdFilterCombi.cls
 library	../src/OdFilterCriteria.cls
 library	../src/OdFilterDomain.cls
 library	../src/OdRepository.cls
+library	../src/OdxMemRs.cls
 library	../src/OdxModel.cls
 library	../src/OdxRepository.cls
 vbatest	../imports/VBA-Test/src/TestCase.cls

@@ -76,12 +76,15 @@ Private Sub SpecOdxRepositoryExternalIdMapping(Suite As TestSuite, aType2 As Boo
         ' ----------------------------------------------------------------------
         Set resolvedModelId = repo.GetModelAndIdFromExternalId("base.res_partner_2")
         .NotUndefined resolvedModelId
-        .IsEqual resolvedModelId("model"), "res.partner"
+        If Not resolvedModelId Is Nothing Then
+            .IsEqual resolvedModelId("model"), "res.partner"
         
-        ' Read record using the resolved res_id to check name dynamically
-        Set partnerRecords = repo.ReadRecord("res.partner", resolvedModelId("res_id"), fieldsToRead)
-        .IsEqual partnerRecords.Count, 1
-        .IsEqual CStr(partnerRecords(1)("name")), "Acme Corporation"
+            ' Read record using the resolved res_id to check name dynamically
+            Set partnerRecords = repo.ReadRecord("res.partner", resolvedModelId("res_id"), fieldsToRead)
+            .IsEqual partnerRecords.Count, 1
+            .IsEqual CStr(partnerRecords(1)("name")), "Acme Corporation"
+        
+        End If
         
         ' ----------------------------------------------------------------------
         ' 2. Test: Resolve from External ID ("base.res_partner_address_31")
@@ -89,11 +92,14 @@ Private Sub SpecOdxRepositoryExternalIdMapping(Suite As TestSuite, aType2 As Boo
         ' ----------------------------------------------------------------------
         Set resolvedModelId = repo.GetModelAndIdFromExternalId("base.res_partner_address_31")
         .NotUndefined resolvedModelId
-        .IsEqual resolvedModelId("model"), "res.partner"
+        If Not resolvedModelId Is Nothing Then
+            .IsEqual resolvedModelId("model"), "res.partner"
+            
+            Set partnerRecords = repo.ReadRecord("res.partner", resolvedModelId("res_id"), fieldsToRead)
+            .IsEqual partnerRecords.Count, 1
+            .IsEqual CStr(partnerRecords(1)("name")), "Addison Olson"
         
-        Set partnerRecords = repo.ReadRecord("res.partner", resolvedModelId("res_id"), fieldsToRead)
-        .IsEqual partnerRecords.Count, 1
-        .IsEqual CStr(partnerRecords(1)("name")), "Addison Olson"
+        End If
         
         ' ----------------------------------------------------------------------
         ' 3. Test: Search by domain to find a record, then test GetExternalIdFromModelAndId

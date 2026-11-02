@@ -74,8 +74,8 @@ Public Property Get UserAgent() As String
     UserAgent = m_userAgent
 End Property
 
-Public Property Let UserAgent(AValue As String)
-    m_userAgent = AValue
+Public Property Let UserAgent(aValue As String)
+    m_userAgent = aValue
 End Property
 
 ' ------------------------------------------------------------------------------
@@ -138,7 +138,7 @@ Public Function GetVersion() As Dictionary
             End If
         End If
         
-        Err.Raise Number:=ERR_HTTP_ERROR, _
+        Err.Raise Number:=CERR_HTTP_ERROR, _
                   Source:="Od2Client", _
                   Description:=errDesc
     End If
@@ -182,7 +182,7 @@ Public Function ExecuteModelMethod(aModel As String, aMethod As String, Optional
             Set ExecuteModelMethod = WrapResult(resp.Data, aExpectPrimitive)
             Exit Function
         Else
-            Err.Raise Number:=ERR_EMPTY_RESPONSE, _
+            Err.Raise Number:=CERR_EMPTY_RESPONSE, _
                       Source:="Od2Client", _
                       Description:="Response data is empty."
         End If
@@ -201,7 +201,7 @@ Public Function ExecuteModelMethod(aModel As String, aMethod As String, Optional
             End If
         End If
         
-        Err.Raise Number:=ERR_ODOO_RPC_ERROR, _
+        Err.Raise Number:=CERR_ODOO_RPC_ERROR, _
                   Source:="Od2Client", _
                   Description:=errorMsg
     End If
@@ -213,7 +213,7 @@ End Function
 
 Private Sub CheckInitialization()
     If Not m_initialized Then
-        Err.Raise Number:=ERR_UNINITIALIZED, _
+        Err.Raise Number:=CERR_UNINITIALIZED, _
                   Source:="Od2Client", _
                   Description:="Od2Client is not initialized. Call Initialize() before executing requests."
     End If
@@ -238,7 +238,7 @@ Private Function WrapResult(aPayload As Variant, Optional aExpectPrimitive As Bo
     
     If aExpectPrimitive Then
         If IsEmpty(dataPayload) Or IsNull(dataPayload) Then
-            Err.Raise Number:=ERR_API_EXECUTION, _
+            Err.Raise Number:=CERR_API_EXECUTION, _
                       Source:="Od2Client", _
                       Description:="Expected primitive value, but got Null or Empty."
         End If
@@ -255,12 +255,12 @@ Private Function WrapResult(aPayload As Variant, Optional aExpectPrimitive As Bo
                     dataPayload = extractedVal
                 End If
             Else
-                Err.Raise Number:=ERR_API_EXECUTION, _
+                Err.Raise Number:=CERR_API_EXECUTION, _
                           Source:="Od2Client", _
                           Description:="Expected single element collection, but got Count = " & dataPayload.Count
             End If
         Else
-            Err.Raise Number:=ERR_API_EXECUTION, _
+            Err.Raise Number:=CERR_API_EXECUTION, _
                       Source:="Od2Client", _
                       Description:="Expected Collection type for primitive extraction, but got a different type."
         End If

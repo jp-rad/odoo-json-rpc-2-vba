@@ -9,7 +9,7 @@
         data mapping and conversion between Odoo JSON-RPC API and Excel VBA ADODB.
     """,
     'author': 'Custom',
-    'depends': ['base'],
+    'depends': ['base', 'contacts'],
     'data': [
         'security/ir.access.csv',
         'views/views.xml',

@@ -129,7 +129,7 @@ Private Function CreateJson2Repository() As OdxRepository
     
     ' Create and initialize Od2Client with direct arguments: (Url, Db, ApiKey)
     Set oClient2 = NewOd2Client
-    oClient.Initialize "https://localhost", "dev_odoo", "your_api_key"
+    oClient2.Initialize "https://localhost", "dev_odoo", "your_api_key"
     
     Set oRepo2 = NewOd2Repository
     oRepo2.Initialize oClient2
@@ -160,17 +160,17 @@ Sub DoSimpleSearchReadOdxModel()
     ' Create OdxModel for 'res.partner'
     Set oModel = NewOdxModel(oRepo, "res.partner")
     With oModel
-        .AddField "name"
-        .AddField "is_company"
-        .AddField "is_public"
+        .AddOdooField "name"
+        .AddOdooField "is_company"
+        .AddOdooField "is_public"
     End With
     
     ' Fetch data with a domain filter
     Set oDomain = NewDomain
     oDomain.AddArity NewField("name").IsIn(Array("Mitchell Admin", "Gemini Furniture"))
-    oModel.FetchSearchAndReadRemote oDomain.Build
+    oModel.FetchSearchAndRead oDomain.Build
     
-    Debug.Print "Fetched record count: " & oModel.Recordset.RecordCount
+    Debug.Print "Fetched record count: " & oModel.RecordCount
 End Sub
 ```
 
@@ -190,52 +190,52 @@ Sub DoRelationsTraversalOdxModel()
     ' Define model and nested relations
     Set oModel = NewOdxModel(oRepo, "res.partner")
     With oModel
-        .AddField "name"
-        .AddField "is_company"
+        .AddOdooField "name"
+        .AddOdooField "is_company"
         
         ' --- Many2one: company_id -> res.company ---
-        With .AddField("company_id")
-            Debug.Assert .IsMany2One
+        With .AddOdooField("company_id")
+            Debug.Assert .IsMany2OneModel
             .AddExternalIdField ' External ID
-            .AddField "name"
-            .AddField "city"
+            .AddOdooField "name"
+            .AddOdooField "city"
             
             ' --- Nested Many2one: currency_id -> res.currency ---
-            With .AddField("currency_id")
-                Debug.Assert .IsMany2One
-                .AddField "name"
-                .AddField "symbol"
+            With .AddOdooField("currency_id")
+                Debug.Assert .IsMany2OneModel
+                .AddOdooField "name"
+                .AddOdooField "symbol"
             End With
         End With
         
         ' --- One2many: child_ids -> res.partner ---
-        With .AddField("child_ids")
-            Debug.Assert .IsOne2Many
-            .AddField "name"
+        With .AddOdooField("child_ids")
+            Debug.Assert .IsOne2ManyModel
+            .AddOdooField "name"
         End With
         
         ' --- Many2many: category_id -> res.partner.category ---
-        With .AddField("category_id")
-            Debug.Assert .IsMany2Many
-            .AddField "name"
+        With .AddOdooField("category_id")
+            Debug.Assert .IsMany2ManyModel
+            .AddOdooField "name"
         End With
     End With
     
     ' Fetch records matching criteria
     Set oDomain = NewDomain
     oDomain.AddArity NewField("name").IsIn(Array("Mitchell Admin", "Gemini Furniture"))
-    oModel.FetchSearchAndReadRemote oDomain.Build
+    oModel.FetchSearchAndRead oDomain.Build
     
     ' Access data and related models
-    Do Until oModel.Recordset.EOF
-        Debug.Print "Partner Name: " & oModel.Recordset.Fields("name").Value
+    Do Until oModel.EOF
+        Debug.Print "Partner Name: " & oModel.FieldValue("name")
         
         Dim oCompanyModel As OdxModel
         Set oCompanyModel = oModel.GetRelatedModel("company_id")
         If Not oCompanyModel Is Nothing Then
-            With oCompanyModel.Recordset
+            With oCompanyModel
                 If .RecordCount = 1 Then
-                    Debug.Print "  -> Company Name: " & .Fields("name").Value & " [" & .Fields("external_id").Value & "]"
+                    Debug.Print "  -> Company Name: " & .FieldValue("name") & " [" & .FieldValue("external_id") & "]"
                 Else
                     Debug.Print "  -> Company Count: " & .RecordCount
                 End If
@@ -246,10 +246,17 @@ Sub DoRelationsTraversalOdxModel()
         Dim oChildModel As OdxModel
         Set oChildModel = oModel.GetRelatedModel("child_ids")
         If Not oChildModel Is Nothing Then
-            Debug.Print "  -> Child Partner Count: " & oChildModel.Recordset.RecordCount
+            Debug.Print "  -> Child Partner Count: " & oChildModel.RecordCount
+            With oChildModel
+                .MoveFirst
+                Do Until .EOF
+                    Debug.Print "     [" & .FieldIdValue & "] " & .FieldValue("name")
+                    .MoveNext
+                Loop
+            End With
         End If
         
-        oModel.Recordset.MoveNext
+        oModel.MoveNext
     Loop
 End Sub
 ```
@@ -284,9 +291,6 @@ cd odoo-json-rpc-2-vba
 * In VBE, select the project `odoo-json-rpc-2-vba example.xlsm`.
 * Go to **Tools** > **References**.
 * In the References dialog, select `OdooJsonRpc2VBA`.
-* **Additionally, select the following reference in the add‑in project `odoo-json-rpc-2-vba.xlam`:**
-* **Microsoft ActiveX Data Objects 6.1 Library**  
-This reference is required for ADODB Recordset operations used by the library.
 
 
 **Run the Tutorial Methods:**

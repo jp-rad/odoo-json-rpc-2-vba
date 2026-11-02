@@ -57,17 +57,13 @@ End Sub
 Public Sub RunSpecsType1()
     Dim Suite As New TestSuite
     Suite.Description = "OdClient Test Suite"
-        
+    
+    RegisterCommonSpecs Suite
+    RegisterOdxSpecs Suite, False
+    
     ' Register specs from external spec modules
-    SpecOdFilter.RegisterSpecs Suite
-    SpecJsonUtils.RegisterSpecs Suite
-    SpecOdJsonRpc.RegisterSpecs Suite
-
     SpecOdClient.RegisterSpecs Suite
     SpecOdRepository.RegisterSpecs Suite
-    
-    SpecOdxRepository.RegisterSpecs Suite, False
-    SpecOdxModelRemoteSync.RegisterSpecs Suite, False
     
     PrintSummary Suite
 End Sub
@@ -78,19 +74,31 @@ End Sub
 Public Sub RunSpecsType2()
     Dim Suite As New TestSuite
     Suite.Description = "Od2Client Test Suite"
-        
+    
+    RegisterCommonSpecs Suite
+    RegisterOdxSpecs Suite, True
+    
     ' Register specs from external spec modules
-    SpecOdFilter.RegisterSpecs Suite
-    SpecJsonUtils.RegisterSpecs Suite
-    SpecOdJsonRpc.RegisterSpecs Suite
-
     SpecOd2Client.RegisterSpecs Suite
     SpecOd2Repository.RegisterSpecs Suite
     
-    SpecOdxRepository.RegisterSpecs Suite, True
-    SpecOdxModelRemoteSync.RegisterSpecs Suite, True
-    
     PrintSummary Suite
+End Sub
+
+Private Sub RegisterCommonSpecs(Suite As TestSuite)
+    ' Register specs from external spec modules
+    'SpecMemRs.RegisterSpecs Suite
+    SpecJsonUtils.RegisterSpecs Suite
+    SpecOdJsonRpc.RegisterSpecs Suite
+    SpecOdFilter.RegisterSpecs Suite
+    
+    SpecOdxMemRs.RegisterSpecs Suite
+End Sub
+
+Private Sub RegisterOdxSpecs(Suite As TestSuite, aType2 As Boolean)
+    ' Register specs from external spec modules
+    SpecOdxRepository.RegisterSpecs Suite, aType2
+    SpecOdxModelRemoteSync.RegisterSpecs Suite, aType2
 End Sub
 
 ''
@@ -122,7 +130,7 @@ Private Sub PrintSummary(Suite As TestSuite)
         For Each testObj In Suite.FailedTests
             Dim v As Variant
             For Each v In testObj.Failures
-                Debug.Print " - " & v
+                Debug.Print " - " & v, testObj.Description
             Next v
         Next testObj
         

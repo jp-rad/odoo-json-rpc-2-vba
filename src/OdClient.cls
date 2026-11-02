@@ -76,8 +76,8 @@ Public Property Get UserAgent() As String
     UserAgent = m_userAgent
 End Property
 
-Public Property Let UserAgent(ByVal AValue As String)
-    m_userAgent = AValue
+Public Property Let UserAgent(ByVal aValue As String)
+    m_userAgent = aValue
 End Property
 
 Public Property Get UserId() As Long
@@ -155,7 +155,7 @@ Public Function Authenticate() As Long
         End If
     End If
     
-    Err.Raise Number:=ERR_AUTHENTICATION_FAILED, _
+    Err.Raise Number:=CERR_AUTHENTICATION_FAILED, _
               Source:="OdClient", _
               Description:="Authentication failed. Invalid credentials or database."
 End Function
@@ -204,7 +204,7 @@ End Function
 
 Private Sub CheckInitialization()
     If Not m_initialized Then
-        Err.Raise Number:=ERR_UNINITIALIZED, _
+        Err.Raise Number:=CERR_UNINITIALIZED, _
                   Source:="OdClient", _
                   Description:="OdClient is not initialized. Call Initialize() before executing requests."
     End If
@@ -251,24 +251,24 @@ Private Function CallJsonRpc(aService As String, aMethod As String, aArgs As Col
             If jsonResp.Exists("error") Then
                 Dim errInfo As Variant
                 Set errInfo = jsonResp("error")
-                Err.Raise Number:=ERR_ODOO_RPC_ERROR, _
+                Err.Raise Number:=CERR_ODOO_RPC_ERROR, _
                           Source:="OdClient", _
                           Description:="Odoo RPC Error: " & errInfo("message")
             ElseIf jsonResp.Exists("result") Then
                 Set CallJsonRpc = jsonResp
                 Exit Function
             Else
-                Err.Raise Number:=ERR_INVALID_RESPONSE, _
+                Err.Raise Number:=CERR_INVALID_RESPONSE, _
                           Source:="OdClient", _
                           Description:="Invalid JSON-RPC response structure: missing 'result' or 'error'."
             End If
         Else
-            Err.Raise Number:=ERR_EMPTY_RESPONSE, _
+            Err.Raise Number:=CERR_EMPTY_RESPONSE, _
                       Source:="OdClient", _
                       Description:="Response data is empty."
         End If
     Else
-        Err.Raise Number:=ERR_HTTP_ERROR, _
+        Err.Raise Number:=CERR_HTTP_ERROR, _
                   Source:="OdClient", _
                   Description:="HTTP " & resp.StatusCode & ": " & resp.StatusDescription
     End If
