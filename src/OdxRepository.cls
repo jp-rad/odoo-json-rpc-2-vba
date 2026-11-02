@@ -34,80 +34,76 @@ Attribute VB_Exposed = True
 
 Option Explicit
 
-''
-' ==============================================================================
-' Class: OdxRepository
-' ==============================================================================
-' Description:
+' ------------------------------------------------------------------------------
+' Module: OdxRepository.cls
+' Purpose:
 '   Acts as a unified wrapper and repository facade for interacting with Odoo.
 '   It delegates repository operations dynamically to either an underlying
 '   `OdRepository` or `Od2Repository` instance based on the initialization type,
 '   providing a common, abstracted interface for client code.
-'
-' Features:
-'   - Dynamic delegation of Odoo RPC model operations (Search, Read, Write, etc.)
-'   - Unified initialization and validation handling
-'   - Model schema caching utilities
-' ==============================================================================
-''
-
-Private m_Type1 As OdRepository
-Private m_Type2 As Od2Repository
-Private m_SchemaCache As Dictionary
-
 ' ------------------------------------------------------------------------------
-' Initialization & Validation
-' ------------------------------------------------------------------------------
+
+Private mType1 As OdRepository
+Private mType2 As Od2Repository
+Private mSchemaCache As Dictionary
+
+' ==========================================
+' Initialization & Validation Methods
+' ==========================================
 
 ''
 ' Initializes the wrapper with either an OdRepository or Od2Repository instance.
 '
 ' @param aRepository Repository instance (OdRepository or Od2Repository)
-'
 ' @return OdxRepository Initialized OdxRepository instance
-''
-Public Function Initialize(aRepository As Object) As OdxRepository
+Public Function Initialize(ByRef aRepository As Object) As OdxRepository
     If TypeOf aRepository Is OdRepository Then
-        Set m_Type1 = aRepository
+        Set mType1 = aRepository
     ElseIf TypeOf aRepository Is Od2Repository Then
-        Set m_Type2 = aRepository
+        Set mType2 = aRepository
     Else
-        Err.Raise ERR_API_EXECUTION, "OdxRepository", "Provided repository instance is invalid or Nothing."
+        Err.Raise CERR_API_EXECUTION, "OdxRepository", "Provided repository instance is invalid or Nothing."
     End If
-    Set m_SchemaCache = New Dictionary
+    Set mSchemaCache = New Dictionary
     
     Set Initialize = Me
 End Function
 
+''
+' Checks if the repository is type 1.
+'
+' @return Boolean True if type 1, False otherwise
 Private Property Get IsType1() As Boolean
-    IsType1 = Not (m_Type1 Is Nothing)
+    IsType1 = Not (mType1 Is Nothing)
 End Property
 
+''
+' Checks if the repository is type 2.
+'
+' @return Boolean True if type 2, False otherwise
 Private Property Get IsType2() As Boolean
-    IsType2 = Not (m_Type2 Is Nothing)
+    IsType2 = Not (mType2 Is Nothing)
 End Property
 
 ''
 ' Checks if the repository has been initialized with a valid instance.
 '
 ' @return Boolean True if initialized, False otherwise
-''
 Public Property Get IsInitialized() As Boolean
     IsInitialized = IsType1 Or IsType2
 End Property
 
 ''
 ' Ensures the repository is initialized before executing operations.
-''
 Private Sub CheckClientInitialized()
     If Not Me.IsInitialized Then
-        Err.Raise ERR_UNINITIALIZED, "OdxRepository", "Repository is not initialized with a repository instance."
+        Err.Raise CERR_UNINITIALIZED, "OdxRepository", "Repository is not initialized with a repository instance."
     End If
 End Sub
 
-' ------------------------------------------------------------------------------
+' ==========================================
 ' Repository & Schema Operations
-' ------------------------------------------------------------------------------
+' ==========================================
 
 ''
 ' Executes an arbitrary model-level method on Odoo via the bound repository.
@@ -117,18 +113,17 @@ End Sub
 ' @param aParams Optional Dictionary of RPC arguments
 ' @param aExpectPrimitive Optional Boolean specifying whether a primitive/single value is expected
 ' @return Dictionary {"result": Result payload}
-''
 Public Function ExecuteModelMethod( _
-    aModel As String, _
-    aMethod As String, _
-    Optional aParams As Dictionary, _
-    Optional aExpectPrimitive As Boolean = False _
+    ByRef aModel As String, _
+    ByRef aMethod As String, _
+    Optional ByVal aParams As Dictionary, _
+    Optional ByVal aExpectPrimitive As Boolean = False _
 ) As Dictionary
     CheckClientInitialized
     If IsType1 Then
-        Set ExecuteModelMethod = m_Type1.ExecuteModelMethod(aModel, aMethod, New Collection, aParams)
+        Set ExecuteModelMethod = mType1.ExecuteModelMethod(aModel, aMethod, New Collection, aParams)
     ElseIf IsType2 Then
-        Set ExecuteModelMethod = m_Type2.ExecuteModelMethod(aModel, aMethod, aParams, aExpectPrimitive)
+        Set ExecuteModelMethod = mType2.ExecuteModelMethod(aModel, aMethod, aParams, aExpectPrimitive)
     End If
 End Function
 
@@ -139,11 +134,10 @@ End Function
 ' @param aMethod Name of the model method to invoke
 ' @param aParams Optional Dictionary of RPC arguments
 ' @return Object (Dictionary or Collection) extracted from the "result" key
-''
 Public Function ExecuteModelMethodObject( _
-    aModel As String, _
-    aMethod As String, _
-    Optional aParams As Dictionary _
+    ByRef aModel As String, _
+    ByRef aMethod As String, _
+    Optional ByVal aParams As Dictionary _
 ) As Object
     Dim dicResponse As Dictionary
     Set dicResponse = ExecuteModelMethod(aModel, aMethod, aParams, False)
@@ -164,11 +158,10 @@ End Function
 ' @param aMethod Name of the model method to invoke
 ' @param aParams Optional Dictionary of RPC arguments
 ' @return Variant Primitive value (Long, String, Boolean, Double, etc.) extracted from the "result" key
-''
 Public Function ExecuteModelMethodPrimitive( _
-    aModel As String, _
-    aMethod As String, _
-    Optional aParams As Dictionary _
+    ByRef aModel As String, _
+    ByRef aMethod As String, _
+    Optional ByVal aParams As Dictionary _
 ) As Variant
     Dim dicResponse As Dictionary
     Set dicResponse = ExecuteModelMethod(aModel, aMethod, aParams, True)
@@ -191,17 +184,16 @@ End Function
 ' @param aFields Optional Collection of field names to retrieve
 ' @param aAttributes Optional Collection of attribute names to return per field
 ' @return Dictionary Field definitions mapping
-''
 Public Function GetModelFields( _
-    aModel As String, _
-    Optional aFields As Collection, _
-    Optional aAttributes As Collection _
+    ByRef aModel As String, _
+    Optional ByVal aFields As Collection, _
+    Optional ByVal aAttributes As Collection _
 ) As Dictionary
     CheckClientInitialized
     If IsType1 Then
-        Set GetModelFields = m_Type1.GetModelFields(aModel, aFields, aAttributes)("result")
+        Set GetModelFields = mType1.GetModelFields(aModel, aFields, aAttributes)("result")
     ElseIf IsType2 Then
-        Set GetModelFields = m_Type2.GetModelFields(aModel, aFields, aAttributes)("result")
+        Set GetModelFields = mType2.GetModelFields(aModel, aFields, aAttributes)("result")
     End If
 End Function
 
@@ -210,17 +202,16 @@ End Function
 '
 ' @param aModelName Target Odoo model name
 ' @return Dictionary Field definitions mapping
-''
-Public Function ModelSchema(aModelName As String) As Dictionary
+Public Function ModelSchema(ByRef aModelName As String) As Dictionary
     Dim dicModelFields As Dictionary
     
-    If m_SchemaCache.Exists(aModelName) Then
-        Set dicModelFields = m_SchemaCache(aModelName)
+    If mSchemaCache.Exists(aModelName) Then
+        Set dicModelFields = mSchemaCache(aModelName)
         GoTo ExitProc
     End If
     
     Set dicModelFields = GetModelFields(aModelName)
-    Set m_SchemaCache(aModelName) = dicModelFields
+    Set mSchemaCache(aModelName) = dicModelFields
 
 ExitProc:
     Set ModelSchema = dicModelFields
@@ -234,20 +225,19 @@ End Function
 ' @param aOffset Optional Long specifying number of records to skip (default: 0)
 ' @param aLimit Optional Long specifying maximum number of records to return (default: 0 = unlimited)
 ' @param aOrder Optional String specifying sort order (e.g., "name ascii, id desc")
-' @return Collection Collection of Record Long IDs}
-''
+' @return Collection Collection of Record Long IDs
 Public Function SearchRecord( _
-    aModel As String, _
-    Optional aDomain As Collection, _
-    Optional aOffset As Long = 0, _
-    Optional aLimit As Long = 0, _
-    Optional aOrder As String = "" _
+    ByRef aModel As String, _
+    Optional ByVal aDomain As Collection, _
+    Optional ByVal aOffset As Long = 0, _
+    Optional ByVal aLimit As Long = 0, _
+    Optional ByVal aOrder As String = "" _
 ) As Collection
     CheckClientInitialized
     If IsType1 Then
-        Set SearchRecord = m_Type1.SearchRecord(aModel, aDomain, aOffset, aLimit, aOrder)("result")
+        Set SearchRecord = mType1.SearchRecord(aModel, aDomain, aOffset, aLimit, aOrder)("result")
     ElseIf IsType2 Then
-        Set SearchRecord = m_Type2.SearchRecord(aModel, aDomain, aOffset, aLimit, aOrder)("result")
+        Set SearchRecord = mType2.SearchRecord(aModel, aDomain, aOffset, aLimit, aOrder)("result")
     End If
 End Function
 
@@ -258,17 +248,16 @@ End Function
 ' @param aRecordId Single Long ID or Collection of Long IDs
 ' @param aFields Optional Collection of field names to read
 ' @return Collection Collection of Record Dictionaries
-''
 Public Function ReadRecord( _
-    aModel As String, _
-    aRecordId As Variant, _
-    Optional aFields As Collection _
+    ByRef aModel As String, _
+    ByRef aRecordId As Variant, _
+    Optional ByVal aFields As Collection _
 ) As Collection
     CheckClientInitialized
     If IsType1 Then
-        Set ReadRecord = m_Type1.ReadRecord(aModel, aRecordId, aFields)("result")
+        Set ReadRecord = mType1.ReadRecord(aModel, aRecordId, aFields)("result")
     ElseIf IsType2 Then
-        Set ReadRecord = m_Type2.ReadRecord(aModel, aRecordId, aFields)("result")
+        Set ReadRecord = mType2.ReadRecord(aModel, aRecordId, aFields)("result")
     End If
 End Function
 
@@ -282,20 +271,19 @@ End Function
 ' @param aLimit Optional Long specifying maximum number of records to return (default: 0 = unlimited)
 ' @param aOrder Optional String specifying sort order (e.g., "id desc")
 ' @return Collection Collection of Record Dictionaries
-''
 Public Function SearchReadRecord( _
-    aModel As String, _
-    Optional aDomain As Collection, _
-    Optional aFields As Collection, _
-    Optional aOffset As Long = 0, _
-    Optional aLimit As Long = 0, _
-    Optional aOrder As String = "" _
+    ByRef aModel As String, _
+    Optional ByVal aDomain As Collection, _
+    Optional ByVal aFields As Collection, _
+    Optional ByVal aOffset As Long = 0, _
+    Optional ByVal aLimit As Long = 0, _
+    Optional ByVal aOrder As String = "" _
 ) As Collection
     CheckClientInitialized
     If IsType1 Then
-        Set SearchReadRecord = m_Type1.SearchReadRecord(aModel, aDomain, aFields, aOffset, aLimit, aOrder)("result")
+        Set SearchReadRecord = mType1.SearchReadRecord(aModel, aDomain, aFields, aOffset, aLimit, aOrder)("result")
     ElseIf IsType2 Then
-        Set SearchReadRecord = m_Type2.SearchReadRecord(aModel, aDomain, aFields, aOffset, aLimit, aOrder)("result")
+        Set SearchReadRecord = mType2.SearchReadRecord(aModel, aDomain, aFields, aOffset, aLimit, aOrder)("result")
     End If
 End Function
 
@@ -305,20 +293,19 @@ End Function
 ' @param aModel Target Odoo model name (e.g., "res.partner")
 ' @param aValues Dictionary or Collection of field name-value pairs for the new record
 ' @return Collection Collection of Record Long IDs
-''
-Public Function CreateRecord(aModel As String, aValues As Variant) As Collection
+Public Function CreateRecord(ByRef aModel As String, ByRef aValues As Variant) As Collection
     CheckClientInitialized
     If IsType1 Then
-        Dim resDict As Dictionary
-        Set resDict = m_Type1.CreateRecord(aModel, aValues)
-        If TypeOf resDict("reulst") Is Collection Then
-            Set CreateRecord = resDict("reulst")
+        Dim dicRes As Dictionary
+        Set dicRes = mType1.CreateRecord(aModel, aValues)
+        If TypeOf dicRes("result") Is Collection Then
+            Set CreateRecord = dicRes("result")
         Else
             Set CreateRecord = New Collection
-            CreateRecord.Add resDict("result")
+            CreateRecord.Add dicRes("result")
         End If
     ElseIf IsType2 Then
-        Set CreateRecord = m_Type2.CreateRecord(aModel, aValues)("result")
+        Set CreateRecord = mType2.CreateRecord(aModel, aValues)("result")
     End If
 End Function
 
@@ -329,13 +316,12 @@ End Function
 ' @param aRecordId Single Long ID or Collection of Long IDs
 ' @param aValues Dictionary of field name-value pairs to update
 ' @return Boolean True on success
-''
-Public Function WriteRecord(aModel As String, aRecordId As Variant, aValues As Dictionary) As Boolean
+Public Function WriteRecord(ByRef aModel As String, ByRef aRecordId As Variant, ByRef aValues As Dictionary) As Boolean
     CheckClientInitialized
     If IsType1 Then
-        WriteRecord = m_Type1.WriteRecord(aModel, aRecordId, aValues)("result")
+        WriteRecord = mType1.WriteRecord(aModel, aRecordId, aValues)("result")
     ElseIf IsType2 Then
-        WriteRecord = m_Type2.WriteRecord(aModel, aRecordId, aValues)("result")
+        WriteRecord = mType2.WriteRecord(aModel, aRecordId, aValues)("result")
     End If
 End Function
 
@@ -345,13 +331,12 @@ End Function
 ' @param aModel Target Odoo model name (e.g., "res.partner")
 ' @param aRecordId Single Long ID or Collection of Long IDs
 ' @return Boolean True on success
-''
-Public Function UnlinkRecord(aModel As String, aRecordId As Variant) As Boolean
+Public Function UnlinkRecord(ByRef aModel As String, ByRef aRecordId As Variant) As Boolean
     CheckClientInitialized
     If IsType1 Then
-        UnlinkRecord = m_Type1.UnlinkRecord(aModel, aRecordId)("result")
+        UnlinkRecord = mType1.UnlinkRecord(aModel, aRecordId)("result")
     ElseIf IsType2 Then
-        UnlinkRecord = m_Type2.UnlinkRecord(aModel, aRecordId)("result")
+        UnlinkRecord = mType2.UnlinkRecord(aModel, aRecordId)("result")
     End If
 End Function
 
@@ -359,64 +344,60 @@ End Function
 ' Retrieves the current authenticated User ID.
 '
 ' @return Long User ID
-''
 Public Function GetCurrentUserId() As Long
     CheckClientInitialized
     If IsType1 Then
-        GetCurrentUserId = m_Type1.GetCurrentUserId()
+        GetCurrentUserId = mType1.GetCurrentUserId()
     ElseIf IsType2 Then
-        GetCurrentUserId = m_Type2.GetCurrentUserId()
+        GetCurrentUserId = mType2.GetCurrentUserId()
     End If
 End Function
 
-''
-' ------------------------------------------------------------------------------
+' ==========================================
 ' Odoo External ID Management
-' ------------------------------------------------------------------------------
-''
+' ==========================================
 
 ''
 ' Retrieves Model and Record ID from an External ID.
 '
 ' @param aExternalId External ID string (e.g., "base_module.partner_root_1")
 ' @return Dictionary containing "model" and "res_id", or Nothing if not found.
-''
-Public Function GetModelAndIdFromExternalId(ByVal aExternalId As String) As Dictionary
-    Dim splitParts() As String
-    Dim moduleName As String
-    Dim objName As String
-    Dim domain As New Collection
-    Dim cond1 As New Collection, cond2 As New Collection
-    Dim res As Collection
-    Dim resultDict As New Dictionary
+Public Function GetModelAndIdFromExternalId(ByRef aExternalId As String) As Dictionary
+    Dim sSplitParts() As String
+    Dim sModuleName As String
+    Dim sObjName As String
+    Dim colDomain As New Collection
+    Dim colCond1 As New Collection
+    Dim colCond2 As New Collection
+    Dim colRes As Collection
+    Dim dicResult As New Dictionary
     
-    splitParts = SplitExternalId(aExternalId)
+    sSplitParts = SplitExternalId(aExternalId)
     
-    moduleName = splitParts(0)
-    objName = splitParts(1)
+    sModuleName = sSplitParts(0)
+    sObjName = sSplitParts(1)
     
     ' Query ir.model.data using module and name
-    cond1.Add "module": cond1.Add "=": cond1.Add moduleName
-    domain.Add cond1
+    colCond1.Add "module": colCond1.Add "=": colCond1.Add sModuleName
+    colDomain.Add colCond1
     
-    cond2.Add "name": cond2.Add "=": cond2.Add objName
-    domain.Add cond2
+    colCond2.Add "name": colCond2.Add "=": colCond2.Add sObjName
+    colDomain.Add colCond2
     
-    Dim fieldsList As New Collection
-    fieldsList.Add "model"
-    fieldsList.Add "res_id"
+    Dim colFieldsList As New Collection
+    colFieldsList.Add "model"
+    colFieldsList.Add "res_id"
     
-    Set res = SearchReadRecord("ir.model.data", domain, fieldsList)
+    Set colRes = SearchReadRecord("ir.model.data", colDomain, colFieldsList)
     
-    If res.Count > 0 Then
-        Dim recDict As Dictionary
-        Set recDict = res(1)
+    If colRes.Count > 0 Then
+        Dim dicRec As Dictionary
+        Set dicRec = colRes(1)
         
-        resultDict.Add "model", CStr(recDict("model"))
-        resultDict.Add "res_id", CLng(recDict("res_id"))
-        Set GetModelAndIdFromExternalId = resultDict
+        dicResult.Add "model", CStr(dicRec("model"))
+        dicResult.Add "res_id", CLng(dicRec("res_id"))
+        Set GetModelAndIdFromExternalId = dicResult
     End If
-    
 End Function
 
 ''
@@ -425,33 +406,32 @@ End Function
 ' @param aModel Model name (e.g., "res.partner")
 ' @param aResId Database ID (Long)
 ' @return External ID string, or empty string if not found.
-''
-Public Function GetExternalIdFromModelAndId(ByVal aModel As String, ByVal aResId As Long) As String
-    Dim domain As New Collection
-    Dim cond1 As New Collection, cond2 As New Collection
-    Dim res As Collection
-    Dim fieldsList As New Collection
+Public Function GetExternalIdFromModelAndId(ByRef aModel As String, ByRef aResId As Long) As String
+    Dim colDomain As New Collection
+    Dim colCond1 As New Collection
+    Dim colCond2 As New Collection
+    Dim colRes As Collection
+    Dim colFieldsList As New Collection
         
     GetExternalIdFromModelAndId = ""
     
-    cond1.Add "model": cond1.Add "=": cond1.Add aModel
-    domain.Add cond1
+    colCond1.Add "model": colCond1.Add "=": colCond1.Add aModel
+    colDomain.Add colCond1
     
-    cond2.Add "res_id": cond2.Add "=": cond2.Add aResId
-    domain.Add cond2
+    colCond2.Add "res_id": colCond2.Add "=": colCond2.Add aResId
+    colDomain.Add colCond2
     
-    fieldsList.Add "module"
-    fieldsList.Add "name"
+    colFieldsList.Add "module"
+    colFieldsList.Add "name"
     
-    Set res = SearchReadRecord("ir.model.data", domain, fieldsList)
+    Set colRes = SearchReadRecord("ir.model.data", colDomain, colFieldsList)
     
-    If res.Count > 0 Then
-        Dim recDict As Dictionary
-        Set recDict = res(1)
+    If colRes.Count > 0 Then
+        Dim dicRec As Dictionary
+        Set dicRec = colRes(1)
         
-        GetExternalIdFromModelAndId = CStr(recDict("module")) & "." & CStr(recDict("name"))
+        GetExternalIdFromModelAndId = CStr(dicRec("module")) & "." & CStr(dicRec("name"))
     End If
-    
 End Function
 
 ''
@@ -462,201 +442,178 @@ End Function
 ' @param aResId Database ID (Long)
 ' @param aExternalId External ID string to register (e.g., "base_module.partner_root_1")
 ' @return Boolean True on successful registration
-' @throws ERR_API_EXECUTION if already exists
-''
-Public Function RegisterExternalId(ByVal aModel As String, ByVal aResId As Long, ByVal aExternalId As String) As Boolean
-    Dim fieldsList As New Collection
-    Dim domain As New Collection
-    Dim cond1 As New Collection, cond2 As New Collection
-    Dim res As Collection
-    Dim splitParts() As String
-    Dim moduleName As String
-    Dim objName As String
-    Dim vals As New Dictionary
+Public Function RegisterExternalId(ByRef aModel As String, ByRef aResId As Long, ByRef aExternalId As String) As Boolean
+    Dim colFieldsList As New Collection
+    Dim colDomain As New Collection
+    Dim colCond1 As New Collection
+    Dim colCond2 As New Collection
+    Dim colRes As Collection
+    Dim sSplitParts() As String
+    Dim sModuleName As String
+    Dim sObjName As String
+    Dim dicVals As New Dictionary
         
-    cond1.Add "model": cond1.Add "=": cond1.Add aModel
-    domain.Add cond1
+    colCond1.Add "model": colCond1.Add "=": colCond1.Add aModel
+    colDomain.Add colCond1
     
-    cond2.Add "res_id": cond2.Add "=": cond2.Add aResId
-    domain.Add cond2
+    colCond2.Add "res_id": colCond2.Add "=": colCond2.Add aResId
+    colDomain.Add colCond2
     
-    fieldsList.Add "id"
+    colFieldsList.Add "id"
     
-    Set res = SearchReadRecord("ir.model.data", domain, fieldsList)
+    Set colRes = SearchReadRecord("ir.model.data", colDomain, colFieldsList)
     
     ' Raise an exception if a mapping for (model, res_id) already exists
-    If res.Count > 0 Then
-        Err.Raise ERR_API_EXECUTION, "OdxRepository", "Mapping already exists: Model '" & aModel & "' with ID " & aResId & " is already registered with an External ID."
+    If colRes.Count > 0 Then
+        Err.Raise CERR_API_EXECUTION, "OdxRepository", "Mapping already exists: Model '" & aModel & "' with ID " & aResId & " is already registered with an External ID."
     End If
     
-    splitParts = SplitExternalId(aExternalId)
-    moduleName = splitParts(0)
-    objName = splitParts(1)
+    sSplitParts = SplitExternalId(aExternalId)
+    sModuleName = sSplitParts(0)
+    sObjName = sSplitParts(1)
         
-    vals.Add "module", moduleName
-    vals.Add "name", objName
-    vals.Add "model", aModel
-    vals.Add "res_id", aResId
+    dicVals.Add "module", sModuleName
+    dicVals.Add "name", sObjName
+    dicVals.Add "model", aModel
+    dicVals.Add "res_id", aResId
     
-    Dim createdRes As Collection
-    Set createdRes = CreateRecord("ir.model.data", vals)
+    Dim colCreatedRes As Collection
+    Set colCreatedRes = CreateRecord("ir.model.data", dicVals)
     
     RegisterExternalId = True
 End Function
 
 ''
 ' Upserts records for a given model based on External IDs ("module.name") without throwing exceptions on row-level errors.
-' - If successful, flags as "created" or "updated" with its record ID.
-' - If an error occurs for a specific record, it catches the error and flags as "error" with the error message.
-' - Relies on VBA runtime error handling for invalid or Nothing inputs.
 '
 ' @param aModel Model name (e.g., "res.partner")
 ' @param aValuesDict Nested Dictionary where Key = External ID ("module.name"), Value = Dictionary of field values
 ' @return Dictionary Key = External ID, Value = Dictionary containing "id" (Long), "action" (String: "created", "updated", or "error"), and optional "error_message"
-''
-Public Function UpsertRecordByExternalId(aModel As String, aValuesDict As Dictionary) As Dictionary
+Public Function UpsertRecordByExternalId(ByRef aModel As String, ByRef aValuesDict As Dictionary) As Dictionary
     Dim vKey As Variant
-    Dim externalId As String
-    Dim fieldValues As Dictionary
-    Dim modelAndId As Dictionary
-    Dim resId As Long
-    Dim writeSuccess As Boolean
-    Dim createdRes As Collection
-    Dim regSuccess As Boolean
+    Dim sExternalId As String
+    Dim dicFieldValues As Dictionary
+    Dim dicModelAndId As Dictionary
+    Dim nResId As Long
+    Dim bWriteSuccess As Boolean
+    Dim colCreatedRes As Collection
+    Dim bRegSuccess As Boolean
     
-    Dim resultDict As New Dictionary
-    Dim recordInfo As Dictionary
+    Dim dicResult As New Dictionary
+    Dim dicRecordInfo As Dictionary
     
-    ' Iterate through each external_id and its corresponding field values
-    ' (If aValuesDict is Nothing, VBA will raise a runtime error here automatically)
     For Each vKey In aValuesDict.Keys
-        externalId = CStr(vKey)
-        Set fieldValues = aValuesDict(externalId)
+        sExternalId = CStr(vKey)
+        Set dicFieldValues = aValuesDict(sExternalId)
         
-        Set recordInfo = New Dictionary
+        Set dicRecordInfo = New Dictionary
         
         On Error GoTo RecordError
         
-        Set modelAndId = GetModelAndIdFromExternalId(externalId)
+        Set dicModelAndId = GetModelAndIdFromExternalId(sExternalId)
         
-        If Not modelAndId Is Nothing Then
-            ' ------------------------------------------------------------------
-            ' Update Existing Record
-            ' ------------------------------------------------------------------
-            If modelAndId("model") <> aModel Then
+        If Not dicModelAndId Is Nothing Then
+            If dicModelAndId("model") <> aModel Then
                 Err.Raise vbObjectError + 101, "OdxRepository", "Model mismatch."
             End If
             
-            resId = modelAndId("res_id")
+            nResId = dicModelAndId("res_id")
+            bWriteSuccess = WriteRecord(aModel, nResId, dicFieldValues)
             
-            writeSuccess = WriteRecord(aModel, resId, fieldValues)
-            
-            recordInfo.Add "id", resId
-            recordInfo.Add "action", "updated"
-            
+            dicRecordInfo.Add "id", nResId
+            dicRecordInfo.Add "action", "updated"
         Else
-            ' ------------------------------------------------------------------
-            ' Create New Record and Register External ID
-            ' ------------------------------------------------------------------
-            Set createdRes = CreateRecord(aModel, fieldValues)
+            Set colCreatedRes = CreateRecord(aModel, dicFieldValues)
+            nResId = colCreatedRes(1)
+            bRegSuccess = RegisterExternalId(aModel, nResId, sExternalId)
             
-            resId = createdRes(1)
-            
-            regSuccess = RegisterExternalId(aModel, resId, externalId)
-            
-            recordInfo.Add "id", resId
-            recordInfo.Add "action", "created"
+            dicRecordInfo.Add "id", nResId
+            dicRecordInfo.Add "action", "created"
         End If
         
         GoTo NextRecord
 
 RecordError:
-        recordInfo.RemoveAll
-        recordInfo.Add "id", 0
-        recordInfo.Add "action", "error"
-        recordInfo.Add "error_message", Err.Description
+        dicRecordInfo.RemoveAll
+        dicRecordInfo.Add "id", 0
+        dicRecordInfo.Add "action", "error"
+        dicRecordInfo.Add "error_message", Err.Description
         Err.Clear
 
 NextRecord:
         On Error GoTo 0
-        resultDict.Add externalId, recordInfo
+        dicResult.Add sExternalId, dicRecordInfo
     Next vKey
     
-    Set UpsertRecordByExternalId = resultDict
+    Set UpsertRecordByExternalId = dicResult
 End Function
 
 ''
 ' Unlinks (deletes) records for a given model based on External ID(s).
-' - Accepts either a single String or a Collection of Strings.
-' - Returns a Dictionary where Key = External ID, Value = Result Info ("unlinked" or "error").
 '
 ' @param aModel Model name (e.g., "res.partner")
 ' @param aExternalId String or Collection of Strings ("module.name")
 ' @return Dictionary Key = External ID, Value = Result Dictionary
-''
-Public Function UnlinkRecordByExternalId(aModel As String, aExternalId As Variant) As Dictionary
-    Dim idCol As Collection
+Public Function UnlinkRecordByExternalId(ByRef aModel As String, ByRef aExternalId As Variant) As Dictionary
+    Dim colIdList As Collection
     
     If TypeOf aExternalId Is Collection Then
-        Set idCol = aExternalId
+        Set colIdList = aExternalId
     Else
-        Set idCol = New Collection
-        idCol.Add aExternalId
+        Set colIdList = New Collection
+        colIdList.Add aExternalId
     End If
     
-    Dim resultDict As New Dictionary
+    Dim dicResult As New Dictionary
     Dim vItem As Variant
-    Dim extId As String
+    Dim sExtId As String
     
-    For Each vItem In idCol
-        extId = CStr(vItem)
-        Dim recordInfo As Dictionary
-        Dim modelAndId As Dictionary
-        Dim resId As Long
-        Dim unlinkSuccess As Boolean
+    For Each vItem In colIdList
+        sExtId = CStr(vItem)
+        Dim dicRecordInfo As Dictionary
+        Dim dicModelAndId As Dictionary
+        Dim nResId As Long
+        Dim bUnlinkSuccess As Boolean
         
-        Set recordInfo = New Dictionary
-        Set modelAndId = Nothing
-        resId = 0
-        unlinkSuccess = False
+        Set dicRecordInfo = New Dictionary
+        Set dicModelAndId = Nothing
+        nResId = 0
+        bUnlinkSuccess = False
         
         On Error GoTo UnlinkError
         
-        ' Resolve External ID to internal ID
-        Set modelAndId = GetModelAndIdFromExternalId(extId)
+        Set dicModelAndId = GetModelAndIdFromExternalId(sExtId)
         If Err.Number <> 0 Then GoTo UnlinkError
         
-        If modelAndId Is Nothing Then
+        If dicModelAndId Is Nothing Then
             Err.Raise vbObjectError + 201, "OdxRepository", "External ID not found."
         End If
         
-        ' Verify model mismatch
-        If modelAndId("model") <> aModel Then
+        If dicModelAndId("model") <> aModel Then
             Err.Raise vbObjectError + 202, "OdxRepository", "Model mismatch."
         End If
         
-        resId = modelAndId("res_id")
+        nResId = dicModelAndId("res_id")
         
-        ' Execute Unlink
-        unlinkSuccess = UnlinkRecord(aModel, resId)
-        If Not unlinkSuccess Then
+        bUnlinkSuccess = UnlinkRecord(aModel, nResId)
+        If Not bUnlinkSuccess Then
             Err.Raise vbObjectError + 203, "OdxRepository", "Failed to unlink record."
         End If
         
-        recordInfo.Add "action", "unlinked"
-        recordInfo.Add "id", resId
+        dicRecordInfo.Add "action", "unlinked"
+        dicRecordInfo.Add "id", nResId
         GoTo NextUnlinkItem
 
 UnlinkError:
-        recordInfo.RemoveAll
-        recordInfo.Add "action", "error"
-        recordInfo.Add "error_message", Err.Description
+        dicRecordInfo.RemoveAll
+        dicRecordInfo.Add "action", "error"
+        dicRecordInfo.Add "error_message", Err.Description
         Err.Clear
 
 NextUnlinkItem:
         On Error GoTo 0
-        resultDict.Add extId, recordInfo
+        dicResult.Add sExtId, dicRecordInfo
     Next vItem
     
-    Set UnlinkRecordByExternalId = resultDict
+    Set UnlinkRecordByExternalId = dicResult
 End Function

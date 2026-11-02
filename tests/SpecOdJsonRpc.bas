@@ -72,7 +72,7 @@ Private Sub SpecSplitExternalId(Suite As TestSuite)
         Test.IsEqual splitRes(0), "base"
         Test.IsEqual splitRes(1), "partner_root"
         
-        .IsEqual Test.Result, TestResultType.Pass
+        .IsEqual Test.result, TestResultType.Pass
     End With
     
     ' Error handling tests for SplitExternalId (must contain a dot)
@@ -83,16 +83,16 @@ Private Sub SpecSplitExternalId(Suite As TestSuite)
         ' Example check for missing dot (should throw ERR_API_EXECUTION)
         On Error Resume Next
         SplitExternalId "partner_123"
-        Test.IsEqual Err.Number, ERR_API_EXECUTION
+        Test.IsEqual Err.Number, CERR_API_EXECUTION
         
         SplitExternalId ""
-        Test.IsEqual Err.Number, ERR_API_EXECUTION
+        Test.IsEqual Err.Number, CERR_API_EXECUTION
         
         SplitExternalId "base."
-        Test.IsEqual Err.Number, ERR_API_EXECUTION
+        Test.IsEqual Err.Number, CERR_API_EXECUTION
         On Error GoTo 0
         
-        .IsEqual Test.Result, TestResultType.Pass
+        .IsEqual Test.result, TestResultType.Pass
     End With
 End Sub
 
@@ -120,7 +120,7 @@ Private Sub SpecNormalizeExternalId(Suite As TestSuite)
         ' Whitespace trimming and space-to-underscore replacement in module and object
         Test.IsEqual NormalizeExternalId("  my module . item # 1   "), "my_module.item_#_1"
         
-        .IsEqual Test.Result, TestResultType.Pass
+        .IsEqual Test.result, TestResultType.Pass
     End With
     
     ' Error handling tests for NormalizeExternalId
@@ -129,12 +129,12 @@ Private Sub SpecNormalizeExternalId(Suite As TestSuite)
         
         On Error Resume Next
         NormalizeExternalId ""
-        Test.IsEqual Err.Number, ERR_API_EXECUTION
+        Test.IsEqual Err.Number, CERR_API_EXECUTION
         
         NormalizeExternalId "base."
-        Test.IsEqual Err.Number, ERR_API_EXECUTION
+        Test.IsEqual Err.Number, CERR_API_EXECUTION
         On Error GoTo 0
         
-        .IsEqual Test.Result, TestResultType.Pass
+        .IsEqual Test.result, TestResultType.Pass
     End With
 End Sub

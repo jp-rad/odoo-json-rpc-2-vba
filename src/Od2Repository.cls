@@ -67,7 +67,7 @@ End Sub
 ''
 Public Function Initialize(aClient As Od2Client) As Od2Repository
     If aClient Is Nothing Then
-        Err.Raise ERR_API_EXECUTION, "Od2Repository", "Provided client instance is Nothing."
+        Err.Raise CERR_API_EXECUTION, "Od2Repository", "Provided client instance is Nothing."
     End If
     Set m_client = aClient
     m_userId = 0
@@ -87,7 +87,7 @@ End Property
 ''
 Private Sub CheckClientInitialized()
     If Not Me.IsInitialized Then
-        Err.Raise ERR_UNINITIALIZED, "Od2Repository", "Repository is not initialized with an Od2Client instance."
+        Err.Raise CERR_UNINITIALIZED, "Od2Repository", "Repository is not initialized with an Od2Client instance."
     End If
 End Sub
 
@@ -338,5 +338,5 @@ Public Function GetCurrentUserId() As Long
         End If
     End If
     
-    Err.Raise ERR_API_EXECUTION, "Od2Repository", "Failed to retrieve authenticated user ID from Odoo response."
+    Err.Raise CERR_API_EXECUTION, "Od2Repository", "Failed to retrieve authenticated user ID from Odoo response."
 End Function

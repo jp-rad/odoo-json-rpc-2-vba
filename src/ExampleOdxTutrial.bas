@@ -53,7 +53,7 @@ End Sub
 ' @param oRepo Initialized OdxRepository instance
 ''
 Private Sub ExecuteTutrial(oRepo As OdxRepository)
-    Dim oModelView As OdxModel
+    Dim oModel As OdxModel
     
     Dim oDomain As OdFilterDomain
     Dim oNames As OdFilterDomain
@@ -76,25 +76,25 @@ Private Sub ExecuteTutrial(oRepo As OdxRepository)
     ' Target names definition
     Set colTagList = New Collection
     Set colNameList = New Collection
-    s = "Mitchell"
-    colTagList.Add s
-    colNameList.Add "Mitchell Admin", s
     s = "Marc"
     colTagList.Add s
     colNameList.Add "Marc Demo", s
     s = "Gemini"
     colTagList.Add s
     colNameList.Add "Gemini Furniture", s
+    s = "Mitchell"
+    colTagList.Add s
+    colNameList.Add "Mitchell Admin", s
             
     DebugRange rng, "--------------"
     DebugRange rng, " OdxModel"
     DebugRange rng, "--------------"
     
     ' ==================
-    ' New OdxModelView
+    ' New OdxModel
     ' ==================
-    Set oModelView = NewOdxModel(oRepo, "res.partner")
-    With oModelView
+    Set oModel = NewOdxModel(oRepo, "res.partner")
+    With oModel
         ' -------------
         ' res.partner
         ' -------------
@@ -103,64 +103,66 @@ Private Sub ExecuteTutrial(oRepo As OdxRepository)
         
         .AddExternalIdField ' (option) External ID
         
-        .AddField "name"
-        .AddField "is_company"
-        .AddField "is_public"
+        .AddOdooField "name"
+        .AddOdooField "is_company"
+        .AddOdooField "is_public"
         
-        With .AddField("company_id")    ' many2one
+        With .AddOdooField("company_id")    ' many2one
             ' --------------------------
             ' res.company
             ' --------------------------
             DebugRange rng, "company_id: many2one --> " & .ModelName
-            Debug.Assert .IsMany2One
+            Debug.Assert .IsMany2OneModel
             DebugRangeSchema rng, .ModelName, oRepo.ModelSchema(.ModelName)
             
-            .AddField "name"
-            .AddField "city"
+            .AddOdooField "name"
+            .AddOdooField "city"
             
-            With .AddField("currency_id")   ' many2one
+            With .AddOdooField("currency_id")   ' many2one
                 ' --------------------------
                 ' res.currency
                 ' --------------------------
                 DebugRange rng, "company_id: many2one --> currency_id: many2one --> " & .ModelName
-                Debug.Assert .IsMany2One
+                Debug.Assert .IsMany2OneModel
                 DebugRangeSchema rng, .ModelName, oRepo.ModelSchema(.ModelName)
                 
-                .AddField "name"
-                .AddField "symbol"
+                .AddOdooField "name"
+                .AddOdooField "symbol"
 
             End With
             
-            '.AddField "layout_background"
+            '.AddOdooField "layout_background"
 
             .AddExternalIdField ' (option) External ID
         End With
         
-        With .AddField("child_ids")     ' one2many
+        With .AddOdooField("child_ids")     ' one2many
             ' --------------------------
             ' res.partner
             ' --------------------------
             DebugRange rng, "child_ids: one2many --> " & .ModelName
-            Debug.Assert .IsOne2Many
+            Debug.Assert .IsOne2ManyModel
             DebugRangeSchema rng, .ModelName, oRepo.ModelSchema(.ModelName)
             
             .AddExternalIdField "custom_external_id" ' (option) External ID
         
-            .AddField "name"
+            .AddOdooField "name"
         End With
                 
-        With .AddField("category_id")   ' many2many
+        With .AddOdooField("category_id")   ' many2many
             ' --------------------------
             ' res.partner.category
             ' --------------------------
             DebugRange rng, "category_id: many2many --> " & .ModelName
-            Debug.Assert .IsMany2Many
+            Debug.Assert .IsMany2ManyModel
             DebugRangeSchema rng, .ModelName, oRepo.ModelSchema(.ModelName)
             
-            .AddField "name"
+            .AddOdooField "name"
         End With
         
-        .AddLocalField "local_comments", adVarChar, -1  ' non-model field
+        .AddLocalField "local_comments", MemVarChar, -1  ' non-model field
+        
+        .AddStatusFields    ' updatable
     End With
 
     ' ==================
@@ -172,13 +174,13 @@ Private Sub ExecuteTutrial(oRepo As OdxRepository)
     Next v
     Set oDomain = NewDomain
     oDomain.AddArity NewField("name").IsIn(oNames)
-    oModelView.FetchSearchAndReadRemote oDomain.Build
+    oModel.FetchSearchAndRead oDomain.Build
     
     ' ==================
     ' All records view
     ' ==================
-    oModelView.ClearFilter   ' Unfiltered
-    With oModelView
+    oModel.ClearFilter   ' Unfiltered
+    With oModel
         DebugPrintModelView wb, .RefMe
         With .GetRelatedModel("company_id", True)
             DebugPrintModelView wb, .RefMe
@@ -200,8 +202,8 @@ Private Sub ExecuteTutrial(oRepo As OdxRepository)
     For Each v In colTagList
         s = colNameList(CStr(v))
         
-        oModelView.SetFilter "name = '" & s & "'"   ' Filtered
-        With oModelView
+        oModel.SetFilter "name = '" & s & "'"   ' Filtered
+        With oModel
             DebugPrintModelView wb, .RefMe, CStr(v)
             With .GetRelatedModel("company_id")
                 DebugPrintModelView wb, .RefMe, v & "(company_id)"
@@ -320,16 +322,13 @@ End Function
 ' @param optSheetName Optional custom sheet name
 ''
 Private Sub DebugPrintModelView(aWb As Workbook, aMv As OdxModel, Optional optSheetName As String = "")
-    Dim rs As ADODB.Recordset
+    'Dim oRs As Object   ' ADODB.Recordset
     Dim sht As Worksheet
     Dim rng As Range
     Dim i As Long
     
     Dim sSheetName As String
-    
-    ' Clone and Filtered
-    Set rs = aMv.Recordset.Clone
-    rs.Filter = aMv.Recordset.Filter
+    Dim colFieldNames As Collection
     
     If optSheetName = "" Then
         sSheetName = aMv.ModelName
@@ -339,14 +338,13 @@ Private Sub DebugPrintModelView(aWb As Workbook, aMv As OdxModel, Optional optSh
     Set sht = aWb.Sheets.Add(After:=aWb.Worksheets(aWb.Worksheets.Count))
     SetWorksheetName sht, sSheetName
     
-    Set rng = sht.Range("A1")
-    For i = 0 To rs.Fields.Count - 1
-        rng.Offset(0, i) = rs.Fields(i).Name
-    Next i
+    Set colFieldNames = aMv.FieldNames
     
-    If Not rs.BOF Then
-        rs.MoveFirst
-    End If
-    rng.Offset(1, 0).CopyFromRecordset rs
+    Set rng = sht.Range("A1")
+    For i = 1 To colFieldNames.Count
+        rng.Offset(0, i - 1) = CStr(colFieldNames(i))
+    Next i
+        
+    rng.Offset(1, 0).CopyFromRecordset aMv.CloneRecordset
     
 End Sub

@@ -73,26 +73,35 @@ End Function
 ' @return String JSON representation
 ''
 Private Function VarToJson(v As Variant) As String
-On Error Resume Next
-    Dim criteria As OdFilterCriteria
-    Set criteria = v
-    If Not criteria Is Nothing Then
-        VarToJson = criteria.ToJson()
-        GoTo ExitProc
+    If Not IsObject(v) Then
+        Dim sJson As String
+        Dim colParsed As Collection
+        If VarType(v) = vbString Then
+            VarToJson = """" & v & """"
+        Else
+            VarToJson = CStr(v)
+        End If
+        Exit Function
     End If
-    Dim combi As OdFilterCombi
-    Set combi = v
-    If Not combi Is Nothing Then
-        VarToJson = combi.ToJson()
-        GoTo ExitProc
+
+    If TypeOf v Is OdFilterCriteria Then
+        Dim oCriteria As OdFilterCriteria
+        Set oCriteria = v
+        VarToJson = oCriteria.ToJson()
+        Exit Function
     End If
-    VarToJson = v.ToJson()
-On Error GoTo ErrRaiseHandler
-    VarToJson = WebHelpers.ConvertToJson(v)
-ExitProc:
-    Exit Function
-ErrRaiseHandler:
-    Err.Raise Err.Number, Err.Source, Err.Description & vbCrLf & "TypeName:" & TypeName(v)
+    
+    If TypeOf v Is OdFilterCombi Then
+        Dim oCombi As OdFilterCombi
+        Set oCombi = v
+        VarToJson = oCombi.ToJson()
+        Exit Function
+    End If
+    
+    Debug.Assert TypeOf v Is OdFilterDomain
+    Dim oDomain As OdFilterDomain
+    Set oDomain = v
+    VarToJson = oDomain.ToJson()
 End Function
 
 ''

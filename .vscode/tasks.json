@@ -4,12 +4,35 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "tools: export modules (-> src)",
+            "label": "tools: Export modules (-> src or tests)",
             "type": "shell",
             "command": "cscript.exe",
             "args": [
                 "${workspaceFolder}/tools/export_modules.vbs"
             ],
+            "problemMatcher": []
+        },
+        {
+            "label": "tools: Clean src and tests modules",
+            "type": "shell",
+            "command": "cmd",
+            "args": [
+                "/c",
+                "for %i in (src tests) do @if exist \"%i\" del /q \"%i\\*.*\""
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "tools: Clean and Export modules",
+            "dependsOn": [
+                "tools: Clean src and tests modules",
+                "tools: Export modules (-> src or tests)"
+            ],
+            "dependsOrder": "sequence",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
             "problemMatcher": []
         }
     ]

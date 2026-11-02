@@ -80,7 +80,7 @@ Private Sub SpecJson(Suite As TestSuite)
                 TestIsEqualJson Test, "['is_company', '=', null]", .ToJson()
             End With
         End With
-        .IsEqual Test.Result, TestResultType.Pass
+        .IsEqual Test.result, TestResultType.Pass
     End With
     
 End Sub
@@ -117,7 +117,7 @@ Public Sub SpecCombi(Suite As TestSuite)
             TestIsEqualJsonCsv Test, "'!', ['phone', 'ilike', '7620']", .ToJson()
         End With
         
-        .IsEqual Test.Result, TestResultType.Pass
+        .IsEqual Test.result, TestResultType.Pass
     End With
         
 End Sub
@@ -187,7 +187,7 @@ Public Sub SpecField(Suite As TestSuite)
             TestIsEqualJson Test, "['name', 'in', [""abc's"", 123]]", .ToJson()
         End With
 
-        .IsEqual Test.Result, TestResultType.Pass
+        .IsEqual Test.result, TestResultType.Pass
     End With
 End Sub
 
@@ -252,7 +252,7 @@ Public Sub SpecCriteria(Suite As TestSuite)
             TestIsEqualJson Test, "['birthday.month_number', '=', 2]", .ToJson()
         End With
         
-        .IsEqual Test.Result, TestResultType.Pass
+        .IsEqual Test.result, TestResultType.Pass
     End With
 
 End Sub
@@ -306,7 +306,7 @@ Public Sub SpecDomain(Suite As TestSuite)
             TestIsEqualJson Test, "[['birthday.month_number','=',2]]", WebHelpers.ConvertToJson(.Build)
         End With
         
-        .IsEqual Test.Result, TestResultType.Pass
+        .IsEqual Test.result, TestResultType.Pass
     End With
 
 End Sub
@@ -375,7 +375,7 @@ Public Sub SpecCoding(Suite As TestSuite)
         End With
         TestIsEqualJson Test, "[[['invoice_status','=','to invoice'],['order_line','any',[['product_id.qty_available','<=',0]]]]]", WebHelpers.ConvertToJson(params)
         
-        .IsEqual Test.Result, TestResultType.Pass
+        .IsEqual Test.result, TestResultType.Pass
     End With
 
 End Sub
