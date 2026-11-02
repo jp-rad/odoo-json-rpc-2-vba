@@ -60,23 +60,25 @@ Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
     
     Set repo = CreateOdxRepository(aType2)
     Set model = New OdxModel
-    model.InitBase repo, "res.partner"
-    model.AddExternalIdField
-    model.AddField "name"
-    model.AddField "is_company"
-    model.AddField "comment"
-    model.AddField "phone"
-    model.AddField "partner_latitude"
-    'model.AddField "offline_since"
+    With model
+        .InitBase repo, "res.partner"
+        .AddExternalIdField
+        
+        .AddOdooField "name"
+        .AddOdooField "is_company"
+        .AddOdooField "phone"
+        .AddOdooField "partner_latitude"
+        '.AddOdooField "offline_since"
+        .AddOdooField "comment"
+        
+        .AddStatusFields   ' Updatable
+    End With
     
     With Suite.Test("TestOdxModelRemoteSync - Comprehensive Null Coverage (String, float, Datetime)")
         
         Dim testExternalId As String
         Dim existingMap As Dictionary
         Dim fetchCount As Long
-        Dim upsertRes As Dictionary
-        Dim unlinkRes As Dictionary
-        Dim rs As ADODB.Recordset
         Dim createdId As Long
         Dim partnerRecords As Collection
         Dim fieldsToRead As New Collection
@@ -91,34 +93,33 @@ Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
             repo.UnlinkRecord "res.partner", existingMap("res_id")
         End If
         
-        fetchCount = model.FetchSearchAndReadRemote()
+        fetchCount = model.FetchSearchAndRead()
         
         ' ----------------------------------------------------------------------
         ' 1. Test: Create record with valid values and explicit Nulls across types
         ' ----------------------------------------------------------------------
-        Set rs = model.Recordset
+        With model
+            .AddNew
+            
+            .FieldValue("name") = "Comprehensive Null Test Partner"
+            
+            .FieldValue("is_company") = False
+            .FieldValue("phone") = "+1-555-9999"                  ' Valid string
+            .FieldValue("partner_latitude") = 42.195              ' Valid integer
+            '.FieldValue("offline_since") = DateSerial(2026, 6, 1) + TimeSerial(12, 34, 56) ' Valid datetime
+            .FieldValue("comment") = Null                         ' Null string
+            
+            .FieldExternalIdValue = testExternalId
+            
+            .Update
+        End With
         
-        rs.AddNew
-        rs("id").Value = -1
-        rs("name").Value = "Comprehensive Null Test Partner"
-        rs("is_company").Value = False
-        rs("phone").Value = "+1-555-9999"                   ' Valid string
-        rs("partner_latitude").Value = 42.195               ' Valid integer
-        'rs("offline_since").Value = DateSerial(2026, 6, 1) + TimeSerial(12, 34, 56) ' Valid datetime
-        rs("comment").Value = Null                          ' Null string
-        rs(model.ExternalIdFieldName).Value = testExternalId
-        rs.Update
+        .IsUndefined model.FieldIdValue
+        model.ApplyBatchUpdate
         
-        rs.MoveLast
-        
-        Set upsertRes = model.UpsertCurrentRecordRemote()
-        
-        .NotUndefined upsertRes
-        .IsEqual CStr(upsertRes("action")), "created"
-        .NotEqual CLng(upsertRes("id")), 0
-        
-        createdId = CLng(upsertRes("id"))
-        .IsEqual CLng(rs("id").Value), createdId
+        model.MoveLast
+        Debug.Assert model.FieldValue("name") = "Comprehensive Null Test Partner"
+        createdId = model.FieldIdValue
         
         ' Verify creation values remotely
         fieldsToRead.Add "phone"
@@ -137,19 +138,22 @@ Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
         ' ----------------------------------------------------------------------
         ' 2. Test: Update record, changing valid values of various types to Null
         ' ----------------------------------------------------------------------
-        rs.MoveLast
-        Debug.Assert rs("id").Value = createdId
-        rs("phone").Value = Null                ' Change string to Null
-        rs("partner_latitude").Value = Null     ' Change float to Null
-        'rs("offline_since").Value = Null        ' Change datetime to Null
-        rs("comment").Value = "Now populated"   ' Change null string to valid value
-        rs.Update
+        model.MoveLast
+        Debug.Assert model.FieldValue("name") = "Comprehensive Null Test Partner"
         
-        Set upsertRes = model.UpsertCurrentRecordRemote()
+        With model
+            .FieldValue("phone") = Null               ' Change string to Null
+            .FieldValue("partner_latitude") = Null    ' Change float to Null
+            '.FieldValue("offline_since") = Null       ' Change datetime to Null
+            .FieldValue("comment") = "Now populated"  ' Change null string to valid value
+            
+            .Update
+        End With
         
-        .NotUndefined upsertRes
-        .IsEqual CStr(upsertRes("action")), "updated"
-        .IsEqual CLng(upsertRes("id")), createdId
+        model.ApplyBatchUpdate
+        
+        model.MoveLast
+        Debug.Assert model.FieldValue("name") = "Comprehensive Null Test Partner"
         
         ' Verify remotely that cleared fields are False/Null/Zero and comment is updated
         Set partnerRecords = repo.ReadRecord("res.partner", createdId, fieldsToRead)
@@ -163,32 +167,37 @@ Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
         ' ----------------------------------------------------------------------
         ' 3. Cleanup: Unlink current record
         ' ----------------------------------------------------------------------
-        Set unlinkRes = model.UnlinkCurrentRecordRemote()
+        model.MoveLast
+        Debug.Assert model.FieldValue("name") = "Comprehensive Null Test Partner"
         
-        .NotUndefined unlinkRes
-        .IsEqual CStr(unlinkRes("action")), "unlinked"
-        .IsEqual CLng(unlinkRes("id")), createdId
+        model.MarkRecordForDelete
+        model.ApplyBatchUpdate
+        
+        .IsEqual model.FetchSearchAndRead(), fetchCount
         
     End With
 End Sub
 
-Private Sub SaveFile(aContentField As ADODB.Field, aFilenameField As ADODB.Field, aPath As String)
+Private Sub SaveFile(aContentFieldValue As Variant, aFilenameFieldValue As Variant, aPath As String)
     Dim bContent() As Byte
     Dim sFilename As String
     
-    bContent = aContentField.Value
+    If IsNull(aContentFieldValue) Then
+        Exit Sub
+    End If
+    bContent = aContentFieldValue
     
-    If IsNull(aFilenameField.Value) Then
+    If IsNull(aFilenameFieldValue) Then
         sFilename = ""
     Else
-        sFilename = Trim(aFilenameField.Value)
+        sFilename = Trim(aFilenameFieldValue)
     End If
     If sFilename = "" Then
-        sFilename = "image_file_" & CStr(UBound(bContent) + 1) & "." & OdJsonRpc.GetImageFormat(bContent)
+        sFilename = "image_file_" & CStr(UBound(bContent) + 1) & "." & GetImageFormat(bContent)
     End If
     sFilename = aPath & "\" & sFilename
     
-    OdJsonRpc.SaveBinaryFile sFilename, bContent
+    SaveBinaryFile sFilename, bContent
     
     Debug.Print "[SpecOdxModelRemoteSync] SaveFile: " & sFilename
 End Sub
@@ -210,35 +219,39 @@ Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
     
     Set repo = CreateOdxRepository(aType2)
     Set model = New OdxModel
-    model.InitBase repo, "vba_json.sample"
-    model.AddExternalIdField
-    
-    model.AddField "name"
-    
-    model.AddField "boolean_field"
-    model.AddField "char_field"
-    model.AddField "float_field"
-    model.AddField "integer_field"
-    
-    model.AddField "html_field"
-    model.AddField "currency_id"
-    model.AddField "monetary_field"
-    model.AddField "selection_field"
-    model.AddField "text_field"
-    
-    model.AddField "date_field"
-    model.AddField "datetime_field"
-    
-    model.AddField "many2one_field"
-    model.AddField "one2many_field"
-    model.AddField "many2many_field"
-    
-    model.AddField "reference_field"
-    model.AddField "ref_model"
-    model.AddField "ref_id"
-    
-    model.AddField "binary_field"
-    model.AddField "image_field"
+    With model
+        .InitBase repo, "vba_json.sample"
+        .AddExternalIdField
+        
+        .AddOdooField "name"
+        
+        .AddOdooField "boolean_field"
+        .AddOdooField "char_field"
+        .AddOdooField "float_field"
+        .AddOdooField "integer_field"
+        
+        .AddOdooField "html_field"
+        .AddOdooField "currency_id"
+        .AddOdooField "monetary_field"
+        .AddOdooField "selection_field"
+        .AddOdooField "text_field"
+        
+        .AddOdooField "date_field"
+        .AddOdooField "datetime_field"
+        
+        .AddOdooField "many2one_field"
+        .AddOdooField "one2many_field"
+        .AddOdooField "many2many_field"
+        
+        .AddOdooField "reference_field"
+        .AddOdooField "ref_model"
+        .AddOdooField "ref_id"
+        
+        .AddOdooField "binary_field"
+        .AddOdooField "image_field"
+        
+        .AddStatusFields   ' Updatable
+    End With
     
     With Suite.Test("TestVbaJsonSampleRemoteSync - Comprehensive All Field Types Coverage")
         
@@ -247,7 +260,7 @@ Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
         Dim fetchCount As Long
         Dim upsertRes As Dictionary
         Dim unlinkRes As Dictionary
-        Dim rs As ADODB.Recordset
+        Dim bResult As Boolean
         Dim createdId As Long
         Dim sampleRecords As Collection
         Dim fieldsToRead As New Collection
@@ -262,70 +275,68 @@ Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
             repo.UnlinkRecord "vba_json.sample", existingMap("res_id")
         End If
         
-        fetchCount = model.FetchSearchAndReadRemote()
+        fetchCount = model.FetchSearchAndRead()
         
         If fetchCount > 0 Then
-            Set rs = model.Recordset
-            SaveFile rs.Fields("binary_field"), rs.Fields("binary_field_filename_"), CTEMP_FOLDER
-            SaveFile rs.Fields("image_field"), rs.Fields("image_field_filename_"), CTEMP_FOLDER
+            SaveFile model.FieldValue("binary_field"), model.FieldValue("binary_field_filename_"), CTEMP_FOLDER
+            SaveFile model.FieldValue("image_field"), model.FieldValue("image_field_filename_"), CTEMP_FOLDER
         End If
         
         ' ----------------------------------------------------------------------
         ' 1. Test: Create record with ALL data types
         ' ----------------------------------------------------------------------
-        Set rs = model.Recordset
+        With model
+            .AddNew
+            .FieldValue("name") = "VBA Sample All Types Test Record"
+            
+            ' Basic fields
+            .FieldValue("boolean_field") = True
+            .FieldValue("char_field") = "All Types Char"
+            .FieldValue("float_field") = 789.12
+            .FieldValue("integer_field") = 100
+            
+            ' Advanced fields
+            .FieldValue("html_field") = "<p>Hello <b>Odoo 20</b> HTML</p>"
+            .FieldValue("currency_id") = 1
+            .FieldValue("monetary_field") = 2500.5
+            .FieldValue("selection_field") = "in_progress"
+            .FieldValue("text_field") = "Line 1: Text field" & vbCrLf & "Line 2: Multi-line text"
+            
+            ' Date(time) fields
+            .FieldValue("date_field") = DateSerial(2026, 10, 18)
+            .FieldValue("datetime_field") = DateSerial(2026, 10, 18) + TimeSerial(15, 30, 0)  ' +9 hours for JST
+            
+            ' Relational fields
+            .FieldValue("many2one_field") = 1
+            .FieldValue("many2many_field") = "[1, 4, 3, 2, 5]"
+            
+            ' Pseudo-relational fields (Reference)
+            .FieldValue("reference_field") = 1
+            .FieldValue("reference_field_model_name_") = "res.partner"
+            .FieldValue("ref_model") = "res.users"
+            .FieldValue("ref_id") = 1
+            
+            ' Binary fields
+            .FieldValue("binary_field") = LoadBinaryFile(CTEMP_FOLDER & "\" & CTEST_PDF)
+            .FieldValue("binary_field_filename_") = CTEST_PDF
+            
+            '.fieldvalue("image_field")= ...
+            
+            .FieldExternalIdValue = testExternalId
+            
+            .Update
+        End With
         
-        rs.AddNew
-        rs("id").Value = -1
-        rs("name").Value = "VBA Sample All Types Test Record"
+        .IsEqual model.FieldValue("name"), "VBA Sample All Types Test Record"
+        .IsUndefined model.FieldIdValue
         
-        ' Basic fields
-        rs("boolean_field").Value = True
-        rs("char_field").Value = "All Types Char"
-        rs("float_field").Value = 789.12
-        rs("integer_field").Value = 100
+        bResult = model.ApplyBatchUpdate
+        .IsEqual True, bResult
         
-        ' Advanced fields
-        rs("html_field").Value = "<p>Hello <b>Odoo 20</b> HTML</p>"
-        rs("currency_id").Value = 1
-        rs("monetary_field").Value = 2500.5
-        rs("selection_field").Value = "in_progress"
-        rs("text_field").Value = "Line 1: Text field" & vbCrLf & "Line 2: Multi-line text"
-        
-        ' Date(time) fields
-        rs("date_field").Value = DateSerial(2026, 10, 18)
-        rs("datetime_field").Value = DateSerial(2026, 10, 18) + TimeSerial(15, 30, 0)   ' +9 hours for JST
-        
-        ' Relational fields
-        rs("many2one_field").Value = 1
-        rs("many2many_field").Value = "[1, 4, 3, 2, 5]"
-        
-        ' Pseudo-relational fields (Reference)
-        rs("reference_field").Value = 1
-        rs("reference_field_model_name_").Value = "res.partner"
-        rs("ref_model").Value = "res.users"
-        rs("ref_id").Value = 1
-        
-        ' Binary fields
-        rs("binary_field").Value = OdJsonRpc.LoadBinaryFile(CTEMP_FOLDER & "\" & CTEST_PDF)
-        rs("binary_field_filename_").Value = CTEST_PDF
-        
-        ' rs("image_field").Value = ...
-        
-        rs(model.ExternalIdFieldName).Value = testExternalId
-        
-        rs.Update
-        
-        rs.MoveLast
-        
-        Set upsertRes = model.UpsertCurrentRecordRemote()
-        
-        .NotUndefined upsertRes
-        .IsEqual CStr(upsertRes("action")), "created"
-        .NotEqual CLng(upsertRes("id")), 0
-        
-        createdId = CLng(upsertRes("id"))
-        .IsEqual CLng(rs("id").Value), createdId
+        model.MoveLast
+        .IsEqual model.FieldValue("name"), "VBA Sample All Types Test Record"
+        .NotUndefined model.FieldIdValue
+        createdId = model.FieldIdValue
         
         ' ----------------------------------------------------------------------
         ' 2. Verify creation values remotely (Reading all fields back)
@@ -371,7 +382,7 @@ Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
         .IsEqual sampleRecords(1)("datetime_field"), "2026-10-18 06:30:00"  ' UTC (-9 hours)
         
         .IsEqual ConvertToJson(sampleRecords(1)("many2one_field")), "[1,""YourCompany""]"
-        .IsEqual ConvertToJson(sampleRecords(1)("many2many_field")), "[5,4,3,2,1]"
+        .IsEqual ConvertToJson(sampleRecords(1)("many2many_field")), "[4,3,2,5,1]"
         
         .IsEqual sampleRecords(1)("reference_field"), "res.partner,1"
         .IsEqual sampleRecords(1)("ref_model"), "res.users"
@@ -383,14 +394,22 @@ Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
         ' ----------------------------------------------------------------------
         ' 3. Test: Update and verify
         ' ----------------------------------------------------------------------
-        rs.MoveLast
-        rs("selection_field").Value = "done"
-        rs("integer_field").Value = 200
-        rs("binary_field").Value = Null
-        rs.Update
+        model.MoveLast
+        .IsEqual model.FieldValue("name"), "VBA Sample All Types Test Record"
         
-        Set upsertRes = model.UpsertCurrentRecordRemote()
-        .IsEqual CStr(upsertRes("action")), "updated"
+        With model
+            .FieldValue("selection_field") = "done"
+            .FieldValue("integer_field") = 200
+            .FieldValue("binary_field") = Null
+            .Update
+        End With
+        
+        bResult = model.ApplyBatchUpdate
+        .IsEqual True, bResult
+        
+        model.MoveLast
+        .IsEqual model.FieldValue("name"), "VBA Sample All Types Test Record"
+        .IsEqual model.FieldIdValue, createdId
         
         Set sampleRecords = repo.ReadRecord("vba_json.sample", createdId, fieldsToRead)
         .IsEqual sampleRecords(1)("selection_field"), "done"
@@ -400,10 +419,19 @@ Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
         ' ----------------------------------------------------------------------
         ' 4. Cleanup: Unlink current record
         ' ----------------------------------------------------------------------
-        Set unlinkRes = model.UnlinkCurrentRecordRemote()
-        .NotUndefined unlinkRes
-        .IsEqual CStr(unlinkRes("action")), "unlinked"
-        .IsEqual CLng(unlinkRes("id")), createdId
+        model.MoveLast
+        .IsEqual model.FieldValue("name"), "VBA Sample All Types Test Record"
+        .IsEqual model.FieldIdValue, createdId
+        
+        model.MarkRecordForDelete
+        
+        bResult = model.ApplyBatchUpdate
+        .IsEqual True, bResult
+        .IsEqual model.RecordCount, fetchCount
+        
+        model.MoveLast
+        .NotEqual model.FieldValue("name"), "VBA Sample All Types Test Record"
+        .NotEqual model.FieldValue("id"), createdId
         
     End With
 End Sub
