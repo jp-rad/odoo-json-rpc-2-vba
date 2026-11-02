@@ -25,7 +25,7 @@
 
 Option Explicit
 
-private const VERSION = "0.4.0"
+private const VERSION = "0.5.0"
 
 Private Function GetExcelApplication() 'As Excel.Application
     Set GetExcelApplication = WScript.CreateObject("Excel.Application")
@@ -128,27 +128,29 @@ Public Sub BuildWorkbookFile(t)
         wbk.VBProject.VBComponents.Import fso.BuildPath(cur, tmp)
     Next 'tmp
 
-    Dim basVersionFile 'As String
-    basVersionFile = fso.BuildPath(tempPath, "OdVersion.bas")
-    with fso.CreateTextFile(basVersionFile, True)
-        .WriteLine "Attribute VB_Name = ""OdVersion"""
-        .WriteLine "' External API - odoo-json-rpc-2-vba"
-        .WriteLine "' "
-        .WriteLine "' Version: " & VERSION
-        .WriteLine "' "
-        .WriteLine ""
-        .WriteLine "Option Explicit"
-        .WriteLine ""
-        .WriteLine "Public Function GetVersion() As String"
-        .WriteLine "    GetVersion = """ & VERSION & """"
-        .WriteLine "End Function"
-        .WriteLine ""
-        .Close
-    End With
-    wbk.VBProject.VBComponents.Import basVersionFile
-    On Error Resume Next
-    fso.DeleteFile basVersionFile
-    On Error GoTo 0
+    If t <> "example" Then
+        Dim basVersionFile 'As String
+        basVersionFile = fso.BuildPath(tempPath, "OdVersion.bas")
+        with fso.CreateTextFile(basVersionFile, True)
+            .WriteLine "Attribute VB_Name = ""OdVersion"""
+            .WriteLine "' External API - odoo-json-rpc-2-vba"
+            .WriteLine "' "
+            .WriteLine "' Version: " & VERSION
+            .WriteLine "' "
+            .WriteLine ""
+            .WriteLine "Option Explicit"
+            .WriteLine ""
+            .WriteLine "Public Function GetVersion() As String"
+            .WriteLine "    GetVersion = """ & VERSION & """"
+            .WriteLine "End Function"
+            .WriteLine ""
+            .Close
+        End With
+        wbk.VBProject.VBComponents.Import basVersionFile
+        On Error Resume Next
+        fso.DeleteFile basVersionFile
+        On Error GoTo 0
+    End If
 
     Dim fnm 'As String
     If t = "library" Then

@@ -283,7 +283,7 @@ cd odoo-json-rpc-2-vba
 
 **Open the Excel Files:**
 
-* Open both `odoo-json-rpc-2-vba example.xlsm` and `odoo-json-rpc-2-vba.xlam`.
+* Open both `odoo-json-rpc-2-vba.xlam` and `odoo-json-rpc-2-vba example.xlsm`.
 
 **Configure References in Visual Basic Editor (VBE):**
 
