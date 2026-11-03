@@ -81,7 +81,9 @@ Private Sub SpecOdxMemRsFieldManagementAndClassification(aSuite As TestSuite)
         .IsEqual oRs.IsControlField("_syn_"), True
         .IsEqual oRs.IsDataBoundField("name"), True
         .IsEqual oRs.IsLocalField("local_flag"), True
-        .IsEqual oRs.IsRequiredField("ext_id"), True
+        
+        .IsEqual oRs.IsRequiredField("id"), False
+        .IsEqual oRs.IsRequiredField("ext_id"), False
         
         Dim colNames As Collection
         Set colNames = oRs.FieldNames

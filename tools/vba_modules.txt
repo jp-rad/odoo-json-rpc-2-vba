@@ -13,7 +13,7 @@ tests	../tests/SpecOdFilter.bas
 tests	../tests/SpecOdJsonRpc.bas
 tests	../tests/SpecOdRepository.bas
 tests	../tests/SpecOdxMemRs.bas
-tests	../tests/SpecOdxModelRemoteSync.bas
+tests	../tests/SpecOdxModel.bas
 tests	../tests/SpecOdxRepository.bas
 tests	../tests/SpecRunner.bas
 imports	../imports/VBA-Web/src/WebHelpers.bas

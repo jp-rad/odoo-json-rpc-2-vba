@@ -87,7 +87,6 @@ End Sub
 
 Private Sub RegisterCommonSpecs(Suite As TestSuite)
     ' Register specs from external spec modules
-    'SpecMemRs.RegisterSpecs Suite
     SpecJsonUtils.RegisterSpecs Suite
     SpecOdJsonRpc.RegisterSpecs Suite
     SpecOdFilter.RegisterSpecs Suite
@@ -98,7 +97,7 @@ End Sub
 Private Sub RegisterOdxSpecs(Suite As TestSuite, aType2 As Boolean)
     ' Register specs from external spec modules
     SpecOdxRepository.RegisterSpecs Suite, aType2
-    SpecOdxModelRemoteSync.RegisterSpecs Suite, aType2
+    SpecOdxModel.RegisterSpecs Suite, aType2
 End Sub
 
 ''

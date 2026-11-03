@@ -55,7 +55,7 @@ Public Const CERR_API_EXECUTION         As Long = vbObjectError + 1007
 ' Define default module constant for external ID handling
 ' ------------------------------------------------------------------------------
 ''
-Private Const CDEFAULT_MODULE_IMPORT As String = "__import__"
+Private Const CDEFAULT_MODULE As String = "__rpc_vba__"
 
 ''
 ' ------------------------------------------------------------------------------
@@ -544,11 +544,11 @@ End Function
 ' If the dot is missing, it supplements the default module name before calling SplitExternalId.
 '
 ' @param aExternalId Raw External ID string
-' @param aDefaultModule Optional default module name when dot is missing (Default: CDEFAULT_MODULE_IMPORT)
+' @param aDefaultModule Optional default module name when dot is missing (Default: CDEFAULT_MODULE)
 ' @return Normalized External ID string
 ' @throws ERR_API_EXECUTION if the external ID is empty, or if the object name is missing (e.g., "base.").
 ''
-Public Function NormalizeExternalId(ByRef aExternalId As String, Optional ByVal aDefaultModule As String = CDEFAULT_MODULE_IMPORT) As String
+Public Function NormalizeExternalId(ByRef aExternalId As String, Optional ByVal aDefaultModule As String = CDEFAULT_MODULE) As String
     Dim arrParts() As String
     Dim sModuleName As String
     Dim sObjName As String
@@ -572,7 +572,7 @@ Public Function NormalizeExternalId(ByRef aExternalId As String, Optional ByVal 
     sObjName = Trim(arrParts(1))
     
     If sModuleName = "" Then
-        If Trim(aDefaultModule) = "" Then aDefaultModule = CDEFAULT_MODULE_IMPORT
+        If Trim(aDefaultModule) = "" Then aDefaultModule = CDEFAULT_MODULE
         sModuleName = aDefaultModule
     End If
     
