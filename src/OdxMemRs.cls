@@ -49,10 +49,6 @@ Private Const CFIELD_OPERATION As String = "_ope_"
 Private Const CFIELD_MARKED_FOR_DELETE As String = "_del_"
 Private Const CFIELD_IS_SYNCED As String = "_syn_"
 
-' Odoo IDs are always positive integers, so we use -1 as an impossible ID.
-' Filtering by this value guarantees the Recordset becomes empty.
-Private Const CMISSING_ID As Long = -1
-
 ' ==========================================
 ' Enums & Constants (Late Binding)
 ' ==========================================
@@ -401,7 +397,7 @@ Public Sub AddExternalIdField(ByRef aFieldName As String)
             Err.Raise CERR_API_EXECUTION, "AddExternalIdField", "External ID field has already been added: '" & sName & "'"
         End If
     Next vItem
-    AddField aFieldName, MemLongVarWChar, MemSizeVariable, MemFldControl Or MemFldExternalId Or MemFldRequired
+    AddField aFieldName, MemLongVarWChar, MemSizeVariable, MemFldControl Or MemFldExternalId
 End Sub
 
 ''
@@ -588,7 +584,7 @@ Public Sub SetIdFilter(ByRef aIdList As Collection)
         Next i
         mRs.Filter = Join(arrCriteria, " OR ")
     Else
-        mRs.Filter = CFIELD_ID & " = " & CMISSING_ID
+        mRs.Filter = CFIELD_ID & " = 0 AND " & CFIELD_ID & " <> 0"
     End If
 End Sub
 

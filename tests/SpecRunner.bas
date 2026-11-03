@@ -87,7 +87,6 @@ End Sub
 
 Private Sub RegisterCommonSpecs(Suite As TestSuite)
     ' Register specs from external spec modules
-    'SpecMemRs.RegisterSpecs Suite
     SpecJsonUtils.RegisterSpecs Suite
     SpecOdJsonRpc.RegisterSpecs Suite
     SpecOdFilter.RegisterSpecs Suite

@@ -27,165 +27,310 @@ Attribute VB_Name = "SpecOdxModel"
 Option Explicit
 
 ' ------------------------------------------------------------------------------
-' Module: SpecOdxRepository
-' Purpose: Contains unit test specifications for OdxRepository
-' Standard:
-'   - On success: Returns a Dictionary containing {"result": <payload>}
-'   - On failure: Raises a runtime error.
+' Module: SpecOdxModel.bas
+' Purpose: Contains unit test specifications for OdxModel class, including
+'          backend communication, null handling, external ID configurations,
+'          and operation filter tests.
 ' ------------------------------------------------------------------------------
 
 Private Const CTEMP_FOLDER As String = "C:\Temp"
 Private Const CTEST_PDF    As String = "test.pdf"
+
 ''
-' Register and run all OdxRepository test specifications across different repository types.
+' Registers and runs all OdxModel test specifications across different repository types.
 '
-' @param Suite TestSuite instance
+' @param aSuite TestSuite instance
+' @param aType2 Boolean flag indicating whether to use Type2 repository
 ''
-Public Sub RegisterSpecs(Suite As TestSuite, aType2 As Boolean)
-    SpecOdxModelRemoteSync Suite, aType2
-    SpecVbaJsonSampleRemoteSync Suite, aType2
+Public Sub RegisterSpecs(ByRef aSuite As TestSuite, ByVal aType2 As Boolean)
+    SpecOdxModelBackendComm aSuite, aType2
+    SpecOdxModelVbaJsonSampleTypes aSuite, aType2
+    SpecOdxModelNullExternalId aSuite, aType2
+    SpecOdxModelWithoutExternalIdField aSuite, aType2
 End Sub
 
 ''
-' Tests for OdxModel remote synchronization methods with comprehensive coverage
+' Tests OdxModel backend communication methods with comprehensive coverage
 ' for creating and updating records containing Null values across multiple types
-' (String, Integer, Date/Datetime).
+' (String, Float, Datetime).
 '
-' @param Suite TestSuite instance
+' @param aSuite TestSuite instance
 ' @param aType2 Boolean flag indicating whether to use Type2 repository
 ''
-Private Sub SpecOdxModelRemoteSync(Suite As TestSuite, aType2 As Boolean)
-    Dim repo As OdxRepository
-    Dim model As OdxModel
+Private Sub SpecOdxModelBackendComm(ByRef aSuite As TestSuite, ByVal aType2 As Boolean)
+    Dim oRepo As OdxRepository
+    Dim oModel As OdxModel
     
-    Set repo = CreateOdxRepository(aType2)
-    Set model = New OdxModel
-    With model
-        .InitBase repo, "res.partner"
+    Set oRepo = CreateOdxRepository(aType2)
+    Set oModel = New OdxModel
+    With oModel
+        .InitBase oRepo, "res.partner"
         .AddExternalIdField
         
         .AddOdooField "name"
         .AddOdooField "is_company"
         .AddOdooField "phone"
         .AddOdooField "partner_latitude"
-        '.AddOdooField "offline_since"
         .AddOdooField "comment"
         
         .AddStatusFields   ' Updatable
     End With
     
-    With Suite.Test("TestOdxModelRemoteSync - Comprehensive Null Coverage (String, float, Datetime)")
+    With aSuite.Test("SpecOdxModelBackendComm - Comprehensive Null Coverage (String, Float, Datetime)")
         
-        Dim testExternalId As String
-        Dim existingMap As Dictionary
-        Dim fetchCount As Long
-        Dim createdId As Long
-        Dim partnerRecords As Collection
-        Dim fieldsToRead As New Collection
+        Dim sTestExternalId As String
+        Dim dicExistingMap As Dictionary
+        Dim nFetchCount As Long
+        Dim nCreatedId As Long
+        Dim colPartnerRecords As Collection
+        Dim colFieldsToRead As New Collection
         
-        testExternalId = "SpecOdxModel.test_remote_sync_comprehensive_null"
+        sTestExternalId = "SpecOdxModel.test_backend_comprehensive_null"
         
         ' ----------------------------------------------------------------------
         ' 0. Pre-cleanup (remove orphaned records if any)
         ' ----------------------------------------------------------------------
-        Set existingMap = repo.GetModelAndIdFromExternalId(testExternalId)
-        If Not existingMap Is Nothing Then
-            repo.UnlinkRecord "res.partner", existingMap("res_id")
+        Set dicExistingMap = oRepo.GetModelAndIdFromExternalId(sTestExternalId)
+        If Not dicExistingMap Is Nothing Then
+            oRepo.UnlinkRecord "res.partner", dicExistingMap("res_id")
         End If
         
-        fetchCount = model.FetchSearchAndRead()
+        nFetchCount = oModel.FetchSearchAndRead()
         
         ' ----------------------------------------------------------------------
         ' 1. Test: Create record with valid values and explicit Nulls across types
         ' ----------------------------------------------------------------------
-        With model
+        With oModel
             .AddNew
             
             .FieldValue("name") = "Comprehensive Null Test Partner"
             
             .FieldValue("is_company") = False
-            .FieldValue("phone") = "+1-555-9999"                  ' Valid string
-            .FieldValue("partner_latitude") = 42.195              ' Valid integer
-            '.FieldValue("offline_since") = DateSerial(2026, 6, 1) + TimeSerial(12, 34, 56) ' Valid datetime
-            .FieldValue("comment") = Null                         ' Null string
+            .FieldValue("phone") = "+1-555-9999"         ' Valid string
+            .FieldValue("partner_latitude") = 42.195     ' Valid float
+            .FieldValue("comment") = Null                ' Null string
             
-            .FieldExternalIdValue = testExternalId
+            .FieldExternalIdValue = sTestExternalId
             
             .Update
         End With
         
-        .IsUndefined model.FieldIdValue
-        model.ApplyBatchUpdate
+        .IsUndefined oModel.FieldIdValue
+        oModel.ApplyBatchUpdate
         
-        model.MoveLast
-        Debug.Assert model.FieldValue("name") = "Comprehensive Null Test Partner"
-        createdId = model.FieldIdValue
+        oModel.MoveLast
+        Debug.Assert oModel.FieldValue("name") = "Comprehensive Null Test Partner"
+        nCreatedId = oModel.FieldIdValue
         
-        ' Verify creation values remotely
-        fieldsToRead.Add "phone"
-        fieldsToRead.Add "partner_latitude"
-        'fieldsToRead.Add "offline_since"
-        fieldsToRead.Add "comment"
+        ' Verify creation values via backend communication
+        colFieldsToRead.Add "phone"
+        colFieldsToRead.Add "partner_latitude"
+        colFieldsToRead.Add "comment"
         
-        Set partnerRecords = repo.ReadRecord("res.partner", createdId, fieldsToRead)
-        .IsEqual partnerRecords.Count, 1
+        Set colPartnerRecords = oRepo.ReadRecord("res.partner", nCreatedId, colFieldsToRead)
+        .IsEqual colPartnerRecords.Count, 1
         
-        .IsEqual partnerRecords(1)("phone"), "+1-555-9999"
-        .IsEqual partnerRecords(1)("partner_latitude"), 42.195
-        '.IsEqual ParseDatetime(partnerRecords(1)("offline_since")), DateSerial(2026, 6, 1) + TimeSerial(12, 34, 56)
-        .IsEqual partnerRecords(1)("comment"), False
+        .IsEqual colPartnerRecords(1)("phone"), "+1-555-9999"
+        .IsEqual colPartnerRecords(1)("partner_latitude"), 42.195
+        .IsEqual colPartnerRecords(1)("comment"), False
         
         ' ----------------------------------------------------------------------
         ' 2. Test: Update record, changing valid values of various types to Null
         ' ----------------------------------------------------------------------
-        model.MoveLast
-        Debug.Assert model.FieldValue("name") = "Comprehensive Null Test Partner"
+        oModel.MoveLast
+        Debug.Assert oModel.FieldValue("name") = "Comprehensive Null Test Partner"
         
-        With model
-            .FieldValue("phone") = Null               ' Change string to Null
+        With oModel
+            .FieldValue("phone") = Null           ' Change string to Null
             .FieldValue("partner_latitude") = Null    ' Change float to Null
-            '.FieldValue("offline_since") = Null       ' Change datetime to Null
             .FieldValue("comment") = "Now populated"  ' Change null string to valid value
             
             .Update
         End With
         
-        model.ApplyBatchUpdate
+        oModel.ApplyBatchUpdate
         
-        model.MoveLast
-        Debug.Assert model.FieldValue("name") = "Comprehensive Null Test Partner"
+        oModel.MoveLast
+        Debug.Assert oModel.FieldValue("name") = "Comprehensive Null Test Partner"
         
-        ' Verify remotely that cleared fields are False/Null/Zero and comment is updated
-        Set partnerRecords = repo.ReadRecord("res.partner", createdId, fieldsToRead)
-        .IsEqual partnerRecords.Count, 1
+        ' Verify via backend that cleared fields are False/Null/Zero and comment is updated
+        Set colPartnerRecords = oRepo.ReadRecord("res.partner", nCreatedId, colFieldsToRead)
+        .IsEqual colPartnerRecords.Count, 1
         
-        .IsEqual partnerRecords(1)("phone"), False
-        .IsEqual partnerRecords(1)("partner_latitude"), False
-        '.IsEqual partnerRecords(1)("offline_since"), False
-        .IsEqual partnerRecords(1)("comment"), "<p>Now populated</p>"
+        .IsEqual colPartnerRecords(1)("phone"), False
+        .IsEqual colPartnerRecords(1)("partner_latitude"), False
+        .IsEqual colPartnerRecords(1)("comment"), "<p>Now populated</p>"
         
         ' ----------------------------------------------------------------------
         ' 3. Cleanup: Unlink current record
         ' ----------------------------------------------------------------------
-        model.MoveLast
-        Debug.Assert model.FieldValue("name") = "Comprehensive Null Test Partner"
+        oModel.MoveLast
+        Debug.Assert oModel.FieldValue("name") = "Comprehensive Null Test Partner"
         
-        model.MarkRecordForDelete
-        model.ApplyBatchUpdate
+        oModel.MarkRecordForDelete
+        oModel.ApplyBatchUpdate
         
-        .IsEqual model.FetchSearchAndRead(), fetchCount
+        .IsEqual oModel.FetchSearchAndRead(), nFetchCount
         
     End With
 End Sub
 
-Private Sub SaveFile(aContentFieldValue As Variant, aFilenameFieldValue As Variant, aPath As String)
-    Dim bContent() As Byte
+''
+' Tests OdxModel when ExternalId is Null/empty.
+'
+' @param aSuite TestSuite instance
+' @param aType2 Boolean flag indicating whether to use Type2 repository
+''
+Private Sub SpecOdxModelNullExternalId(ByRef aSuite As TestSuite, ByVal aType2 As Boolean)
+    Dim oRepo As OdxRepository
+    Dim oModel As OdxModel
+    
+    Set oRepo = CreateOdxRepository(aType2)
+    Set oModel = New OdxModel
+    With oModel
+        .InitBase oRepo, "res.partner"
+        .AddExternalIdField
+        
+        .AddOdooField "name"
+        .AddOdooField "phone"
+        
+        .AddStatusFields   ' Updatable
+    End With
+    
+    With aSuite.Test("SpecOdxModelNullExternalId - Create and Update with Null ExternalId")
+        Dim sTestName As String
+        Dim nCreatedId As Long
+        Dim nFetchCount As Long
+        
+        sTestName = "Null ExternalId Test Partner"
+        nFetchCount = oModel.FetchSearchAndRead()
+        
+        ' 1. Create record with explicit Null ExternalId
+        With oModel
+            .AddNew
+            .FieldValue("name") = sTestName
+            .FieldValue("phone") = "+1-555-1111"
+            .FieldExternalIdValue = Null
+            .Update
+        End With
+        
+        oModel.ApplyBatchUpdate
+        
+        oModel.MoveLast
+        .IsEqual oModel.FieldValue("name"), sTestName
+        .NotUndefined oModel.FieldIdValue
+        .NotUndefined oModel.FieldExternalIdValue
+        .IsEqual InStr(1, oModel.FieldExternalIdValue, "__rpc_vba__.res_partner_"), 1
+        nCreatedId = oModel.FieldIdValue
+        
+        ' 2. Update record without external ID
+        With oModel
+            .FieldValue("phone") = "+1-555-2222"
+            .Update
+        End With
+        
+        oModel.ApplyBatchUpdate
+        
+        oModel.MoveLast
+        .IsEqual oModel.FieldIdValue, nCreatedId
+        
+        ' 3. Cleanup
+        oModel.MoveLast
+        oModel.MarkRecordForDelete
+        oModel.ApplyBatchUpdate
+        
+        .IsEqual oModel.FetchSearchAndRead(), nFetchCount
+    End With
+End Sub
+
+''
+' Tests OdxModel when AddExternalIdField is NOT called (updating by ID).
+'
+' @param aSuite TestSuite instance
+' @param aType2 Boolean flag indicating whether to use Type2 repository
+''
+Private Sub SpecOdxModelWithoutExternalIdField(ByRef aSuite As TestSuite, ByVal aType2 As Boolean)
+    Dim oRepo As OdxRepository
+    Dim oModel As OdxModel
+    
+    Set oRepo = CreateOdxRepository(aType2)
+    Set oModel = New OdxModel
+    With oModel
+        .InitBase oRepo, "res.partner"
+        ' Note: intentionally NOT calling .AddExternalIdField
+        
+        .AddOdooField "name"
+        .AddOdooField "phone"
+        
+        .AddLocalField "local", MemLongVarWChar, MemSizeVariable
+        
+        .AddStatusFields   ' Updatable
+    End With
+    
+    With aSuite.Test("SpecOdxModelWithoutExternalIdField - Update and Create by ID")
+        Dim sTestName As String
+        Dim sUpdatedName As String
+        Dim nCreatedId As Long
+        Dim nFetchCount As Long
+        
+        sTestName = "No ExternalId Field Test Partner"
+        sUpdatedName = "No ExternalId Field Updated Partner"
+        
+        nFetchCount = oModel.FetchSearchAndRead()
+        
+        ' 1. Create record without external id field definition
+        With oModel
+            .AddNew
+            .FieldValue("name") = sTestName
+            .FieldValue("phone") = "+1-555-3333"
+            .Update
+        End With
+        
+        oModel.ApplyBatchUpdate
+        
+        oModel.MoveLast
+        .IsEqual oModel.FieldValue("name"), sTestName
+        .NotUndefined oModel.FieldIdValue
+        nCreatedId = oModel.FieldIdValue
+        
+        ' 2. Update the record by ID (relying on internal ID tracking)
+        With oModel
+            .FieldValue("name") = sUpdatedName
+            .Update
+        End With
+        
+        oModel.ApplyBatchUpdate
+        
+        oModel.MoveLast
+        .IsEqual oModel.FieldValue("name"), sUpdatedName
+        .IsEqual oModel.FieldIdValue, nCreatedId
+        .IsUndefined oModel.FieldValue("local")
+        
+        ' 3. Only local fields have changed, with no updates to Odoo fields.
+        With oModel
+            .FieldValue("local") = "test"
+            .Update
+        End With
+        
+        oModel.ApplyBatchUpdate
+        
+        ' 4. Cleanup: Delete record
+        oModel.MoveLast
+        oModel.MarkRecordForDelete
+        oModel.ApplyBatchUpdate
+        
+        .IsEqual oModel.FetchSearchAndRead(), nFetchCount
+    End With
+End Sub
+
+Private Sub SaveFile(ByVal aContentFieldValue As Variant, ByVal aFilenameFieldValue As Variant, ByVal aPath As String)
+    Dim abContent() As Byte
     Dim sFilename As String
     
     If IsNull(aContentFieldValue) Then
         Exit Sub
     End If
-    bContent = aContentFieldValue
+    abContent = aContentFieldValue
     
     If IsNull(aFilenameFieldValue) Then
         sFilename = ""
@@ -193,245 +338,224 @@ Private Sub SaveFile(aContentFieldValue As Variant, aFilenameFieldValue As Varia
         sFilename = Trim(aFilenameFieldValue)
     End If
     If sFilename = "" Then
-        sFilename = "image_file_" & CStr(UBound(bContent) + 1) & "." & GetImageFormat(bContent)
+        sFilename = "image_file_" & CStr(UBound(abContent) + 1) & "." & GetImageFormat(abContent)
     End If
     sFilename = aPath & "\" & sFilename
     
-    SaveBinaryFile sFilename, bContent
+    SaveBinaryFile sFilename, abContent
     
-    Debug.Print "[SpecOdxModelRemoteSync] SaveFile: " & sFilename
+    Debug.Print "[SpecOdxModelBackendComm] SaveFile: " & sFilename
 End Sub
 
 ''
-' Tests for OdxModel remote synchronization methods using vba_json.sample
+' Tests OdxModel backend communication methods using vba_json.sample
 ' with comprehensive coverage across ALL Odoo data types.
 '
-' @param Suite TestSuite instance
+' @param aSuite TestSuite instance
 ' @param aType2 Boolean flag indicating whether to use Type2 repository
 ''
-Private Sub SpecVbaJsonSampleRemoteSync(Suite As TestSuite, aType2 As Boolean)
-    Dim repo As OdxRepository
-    Dim model As OdxModel
+Private Sub SpecOdxModelVbaJsonSampleTypes(ByRef aSuite As TestSuite, ByVal aType2 As Boolean)
+    Dim oRepo As OdxRepository
+    Dim oModel As OdxModel
     
     If Dir(CTEMP_FOLDER, vbDirectory) = "" Then
         MkDir CTEMP_FOLDER
     End If
     
-    Set repo = CreateOdxRepository(aType2)
-    Set model = New OdxModel
-    With model
-        .InitBase repo, "vba_json.sample"
+    Set oRepo = CreateOdxRepository(aType2)
+    Set oModel = New OdxModel
+    With oModel
+        .InitBase oRepo, "vba_json.sample"
         .AddExternalIdField
         
         .AddOdooField "name"
-        
         .AddOdooField "boolean_field"
         .AddOdooField "char_field"
         .AddOdooField "float_field"
         .AddOdooField "integer_field"
-        
         .AddOdooField "html_field"
         .AddOdooField "currency_id"
         .AddOdooField "monetary_field"
         .AddOdooField "selection_field"
         .AddOdooField "text_field"
-        
         .AddOdooField "date_field"
         .AddOdooField "datetime_field"
-        
         .AddOdooField "many2one_field"
         .AddOdooField "one2many_field"
         .AddOdooField "many2many_field"
-        
         .AddOdooField "reference_field"
         .AddOdooField "ref_model"
         .AddOdooField "ref_id"
-        
         .AddOdooField "binary_field"
         .AddOdooField "image_field"
         
         .AddStatusFields   ' Updatable
     End With
     
-    With Suite.Test("TestVbaJsonSampleRemoteSync - Comprehensive All Field Types Coverage")
+    With aSuite.Test("SpecOdxModelVbaJsonSampleTypes - Comprehensive All Field Types Coverage")
         
-        Dim testExternalId As String
-        Dim existingMap As Dictionary
-        Dim fetchCount As Long
-        Dim upsertRes As Dictionary
-        Dim unlinkRes As Dictionary
+        Dim sTestExternalId As String
+        Dim dicExistingMap As Dictionary
+        Dim nFetchCount As Long
         Dim bResult As Boolean
-        Dim createdId As Long
-        Dim sampleRecords As Collection
-        Dim fieldsToRead As New Collection
+        Dim nCreatedId As Long
+        Dim colSampleRecords As Collection
+        Dim colFieldsToRead As New Collection
         
-        testExternalId = "SpecVbaJsonSample.test_remote_sync_all_types"
+        sTestExternalId = "SpecOdxModel.test_backend_all_types"
         
         ' ----------------------------------------------------------------------
         ' 0. Pre-cleanup (remove orphaned records if any)
         ' ----------------------------------------------------------------------
-        Set existingMap = repo.GetModelAndIdFromExternalId(testExternalId)
-        If Not existingMap Is Nothing Then
-            repo.UnlinkRecord "vba_json.sample", existingMap("res_id")
+        Set dicExistingMap = oRepo.GetModelAndIdFromExternalId(sTestExternalId)
+        If Not dicExistingMap Is Nothing Then
+            oRepo.UnlinkRecord "vba_json.sample", dicExistingMap("res_id")
         End If
         
-        fetchCount = model.FetchSearchAndRead()
+        nFetchCount = oModel.FetchSearchAndRead()
         
-        If fetchCount > 0 Then
-            SaveFile model.FieldValue("binary_field"), model.FieldValue("binary_field_filename_"), CTEMP_FOLDER
-            SaveFile model.FieldValue("image_field"), model.FieldValue("image_field_filename_"), CTEMP_FOLDER
+        If nFetchCount > 0 Then
+            SaveFile oModel.FieldValue("binary_field"), oModel.FieldValue("binary_field_filename_"), CTEMP_FOLDER
+            SaveFile oModel.FieldValue("image_field"), oModel.FieldValue("image_field_filename_"), CTEMP_FOLDER
         End If
         
         ' ----------------------------------------------------------------------
         ' 1. Test: Create record with ALL data types
         ' ----------------------------------------------------------------------
-        With model
+        With oModel
             .AddNew
             .FieldValue("name") = "VBA Sample All Types Test Record"
             
-            ' Basic fields
             .FieldValue("boolean_field") = True
             .FieldValue("char_field") = "All Types Char"
             .FieldValue("float_field") = 789.12
             .FieldValue("integer_field") = 100
             
-            ' Advanced fields
             .FieldValue("html_field") = "<p>Hello <b>Odoo 20</b> HTML</p>"
             .FieldValue("currency_id") = 1
             .FieldValue("monetary_field") = 2500.5
             .FieldValue("selection_field") = "in_progress"
             .FieldValue("text_field") = "Line 1: Text field" & vbCrLf & "Line 2: Multi-line text"
             
-            ' Date(time) fields
             .FieldValue("date_field") = DateSerial(2026, 10, 18)
-            .FieldValue("datetime_field") = DateSerial(2026, 10, 18) + TimeSerial(15, 30, 0)  ' +9 hours for JST
+            .FieldValue("datetime_field") = DateSerial(2026, 10, 18) + TimeSerial(15, 30, 0)
             
-            ' Relational fields
             .FieldValue("many2one_field") = 1
             .FieldValue("many2many_field") = "[1, 4, 3, 2, 5]"
             
-            ' Pseudo-relational fields (Reference)
             .FieldValue("reference_field") = 1
             .FieldValue("reference_field_model_name_") = "res.partner"
             .FieldValue("ref_model") = "res.users"
             .FieldValue("ref_id") = 1
             
-            ' Binary fields
             .FieldValue("binary_field") = LoadBinaryFile(CTEMP_FOLDER & "\" & CTEST_PDF)
             .FieldValue("binary_field_filename_") = CTEST_PDF
             
-            '.fieldvalue("image_field")= ...
-            
-            .FieldExternalIdValue = testExternalId
+            .FieldExternalIdValue = sTestExternalId
             
             .Update
         End With
         
-        .IsEqual model.FieldValue("name"), "VBA Sample All Types Test Record"
-        .IsUndefined model.FieldIdValue
+        .IsEqual oModel.FieldValue("name"), "VBA Sample All Types Test Record"
+        .IsUndefined oModel.FieldIdValue
         
-        bResult = model.ApplyBatchUpdate
+        bResult = oModel.ApplyBatchUpdate
         .IsEqual True, bResult
         
-        model.MoveLast
-        .IsEqual model.FieldValue("name"), "VBA Sample All Types Test Record"
-        .NotUndefined model.FieldIdValue
-        createdId = model.FieldIdValue
+        oModel.MoveLast
+        .IsEqual oModel.FieldValue("name"), "VBA Sample All Types Test Record"
+        .NotUndefined oModel.FieldIdValue
+        nCreatedId = oModel.FieldIdValue
         
         ' ----------------------------------------------------------------------
-        ' 2. Verify creation values remotely (Reading all fields back)
+        ' 2. Verify creation values via backend (Reading all fields back)
         ' ----------------------------------------------------------------------
-        fieldsToRead.Add "boolean_field"
-        fieldsToRead.Add "char_field"
-        fieldsToRead.Add "float_field"
-        fieldsToRead.Add "integer_field"
+        colFieldsToRead.Add "boolean_field"
+        colFieldsToRead.Add "char_field"
+        colFieldsToRead.Add "float_field"
+        colFieldsToRead.Add "integer_field"
+        colFieldsToRead.Add "html_field"
+        colFieldsToRead.Add "monetary_field"
+        colFieldsToRead.Add "selection_field"
+        colFieldsToRead.Add "text_field"
+        colFieldsToRead.Add "date_field"
+        colFieldsToRead.Add "datetime_field"
+        colFieldsToRead.Add "many2one_field"
+        colFieldsToRead.Add "one2many_field"
+        colFieldsToRead.Add "many2many_field"
+        colFieldsToRead.Add "reference_field"
+        colFieldsToRead.Add "ref_model"
+        colFieldsToRead.Add "ref_id"
+        colFieldsToRead.Add "binary_field"
+        colFieldsToRead.Add "image_field"
         
-        fieldsToRead.Add "html_field"
-        fieldsToRead.Add "monetary_field"
-        fieldsToRead.Add "selection_field"
-        fieldsToRead.Add "text_field"
+        Set colSampleRecords = oRepo.ReadRecord("vba_json.sample", nCreatedId, colFieldsToRead)
+        .IsEqual colSampleRecords.Count, 1
         
-        fieldsToRead.Add "date_field"
-        fieldsToRead.Add "datetime_field"
-    
-        fieldsToRead.Add "many2one_field"
-        fieldsToRead.Add "one2many_field"
-        fieldsToRead.Add "many2many_field"
+        .IsEqual colSampleRecords(1)("boolean_field"), True
+        .IsEqual colSampleRecords(1)("char_field"), "All Types Char"
+        .IsEqual colSampleRecords(1)("float_field"), 789.12
+        .IsEqual colSampleRecords(1)("integer_field"), 100
         
-        fieldsToRead.Add "reference_field"
-        fieldsToRead.Add "ref_model"
-        fieldsToRead.Add "ref_id"
+        .IsEqual colSampleRecords(1)("html_field"), "<p>Hello <b>Odoo 20</b> HTML</p>"
+        .IsEqual colSampleRecords(1)("monetary_field"), 2500.5
+        .IsEqual colSampleRecords(1)("selection_field"), "in_progress"
+        .IsEqual colSampleRecords(1)("text_field"), "Line 1: Text field" & vbCrLf & "Line 2: Multi-line text"
         
-        fieldsToRead.Add "binary_field"
-        fieldsToRead.Add "image_field"
+        .IsEqual colSampleRecords(1)("date_field"), "2026-10-18"
+        .IsEqual colSampleRecords(1)("datetime_field"), "2026-10-18 06:30:00"
         
-        Set sampleRecords = repo.ReadRecord("vba_json.sample", createdId, fieldsToRead)
-        .IsEqual sampleRecords.Count, 1
+        .IsEqual ConvertToJson(colSampleRecords(1)("many2one_field")), "[1,""YourCompany""]"
+        .IsEqual ConvertToJson(colSampleRecords(1)("many2many_field")), "[4,3,2,5,1]"
         
-        .IsEqual sampleRecords(1)("boolean_field"), True
-        .IsEqual sampleRecords(1)("char_field"), "All Types Char"
-        .IsEqual sampleRecords(1)("float_field"), 789.12
-        .IsEqual sampleRecords(1)("integer_field"), 100
+        .IsEqual colSampleRecords(1)("reference_field"), "res.partner,1"
+        .IsEqual colSampleRecords(1)("ref_model"), "res.users"
+        .IsEqual colSampleRecords(1)("ref_id"), 1
         
-        .IsEqual sampleRecords(1)("html_field"), "<p>Hello <b>Odoo 20</b> HTML</p>"
-        .IsEqual sampleRecords(1)("monetary_field"), 2500.5
-        .IsEqual sampleRecords(1)("selection_field"), "in_progress"
-        .IsEqual sampleRecords(1)("text_field"), "Line 1: Text field" & vbCrLf & "Line 2: Multi-line text"
-        
-        .IsEqual sampleRecords(1)("date_field"), "2026-10-18"
-        .IsEqual sampleRecords(1)("datetime_field"), "2026-10-18 06:30:00"  ' UTC (-9 hours)
-        
-        .IsEqual ConvertToJson(sampleRecords(1)("many2one_field")), "[1,""YourCompany""]"
-        .IsEqual ConvertToJson(sampleRecords(1)("many2many_field")), "[4,3,2,5,1]"
-        
-        .IsEqual sampleRecords(1)("reference_field"), "res.partner,1"
-        .IsEqual sampleRecords(1)("ref_model"), "res.users"
-        .IsEqual sampleRecords(1)("ref_id"), 1
-        
-        .IsEqual sampleRecords(1)("binary_field")("filename"), CTEST_PDF
-        .IsEqual sampleRecords(1)("image_field"), False
+        .IsEqual colSampleRecords(1)("binary_field")("filename"), CTEST_PDF
+        .IsEqual colSampleRecords(1)("image_field"), False
         
         ' ----------------------------------------------------------------------
         ' 3. Test: Update and verify
         ' ----------------------------------------------------------------------
-        model.MoveLast
-        .IsEqual model.FieldValue("name"), "VBA Sample All Types Test Record"
+        oModel.MoveLast
+        .IsEqual oModel.FieldValue("name"), "VBA Sample All Types Test Record"
         
-        With model
+        With oModel
             .FieldValue("selection_field") = "done"
             .FieldValue("integer_field") = 200
             .FieldValue("binary_field") = Null
             .Update
         End With
         
-        bResult = model.ApplyBatchUpdate
+        bResult = oModel.ApplyBatchUpdate
         .IsEqual True, bResult
         
-        model.MoveLast
-        .IsEqual model.FieldValue("name"), "VBA Sample All Types Test Record"
-        .IsEqual model.FieldIdValue, createdId
+        oModel.MoveLast
+        .IsEqual oModel.FieldValue("name"), "VBA Sample All Types Test Record"
+        .IsEqual oModel.FieldIdValue, nCreatedId
         
-        Set sampleRecords = repo.ReadRecord("vba_json.sample", createdId, fieldsToRead)
-        .IsEqual sampleRecords(1)("selection_field"), "done"
-        .IsEqual sampleRecords(1)("integer_field"), 200
-        .IsEqual sampleRecords(1)("binary_field"), False
+        Set colSampleRecords = oRepo.ReadRecord("vba_json.sample", nCreatedId, colFieldsToRead)
+        .IsEqual colSampleRecords(1)("selection_field"), "done"
+        .IsEqual colSampleRecords(1)("integer_field"), 200
+        .IsEqual colSampleRecords(1)("binary_field"), False
         
         ' ----------------------------------------------------------------------
         ' 4. Cleanup: Unlink current record
         ' ----------------------------------------------------------------------
-        model.MoveLast
-        .IsEqual model.FieldValue("name"), "VBA Sample All Types Test Record"
-        .IsEqual model.FieldIdValue, createdId
+        oModel.MoveLast
+        .IsEqual oModel.FieldValue("name"), "VBA Sample All Types Test Record"
+        .IsEqual oModel.FieldIdValue, nCreatedId
         
-        model.MarkRecordForDelete
+        oModel.MarkRecordForDelete
         
-        bResult = model.ApplyBatchUpdate
+        bResult = oModel.ApplyBatchUpdate
         .IsEqual True, bResult
-        .IsEqual model.RecordCount, fetchCount
+        .IsEqual oModel.RecordCount, nFetchCount
         
-        model.MoveLast
-        .NotEqual model.FieldValue("name"), "VBA Sample All Types Test Record"
-        .NotEqual model.FieldValue("id"), createdId
+        oModel.MoveLast
+        .NotEqual oModel.FieldValue("name"), "VBA Sample All Types Test Record"
+        .NotEqual oModel.FieldValue("id"), nCreatedId
         
     End With
 End Sub
