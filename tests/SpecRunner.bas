@@ -27,7 +27,7 @@ Attribute VB_Name = "SpecRunner"
 Option Explicit
 
 ' ------------------------------------------------------------------------------
-' Module: SpecRunner
+' Module: SpecRunner.bas
 ' Purpose: Entry point and central configuration provider for unit tests
 ' ------------------------------------------------------------------------------
 
@@ -55,49 +55,49 @@ End Sub
 ' Main Test Runner Entrypoint for Type 1 suite.
 ''
 Public Sub RunSpecsType1()
-    Dim Suite As New TestSuite
-    Suite.Description = "OdClient Test Suite"
+    Dim oSuite As New TestSuite
+    oSuite.Description = "OdClient Test Suite"
     
-    RegisterCommonSpecs Suite
-    RegisterOdxSpecs Suite, False
+    RegisterCommonSpecs oSuite
+    RegisterOdxSpecs oSuite, False
     
     ' Register specs from external spec modules
-    SpecOdClient.RegisterSpecs Suite
-    SpecOdRepository.RegisterSpecs Suite
+    SpecOdClient.RegisterSpecs oSuite
+    SpecOdRepository.RegisterSpecs oSuite
     
-    PrintSummary Suite
+    PrintSummary oSuite
 End Sub
 
 ''
 ' Main Test Runner Entrypoint for Type 2 suite.
 ''
 Public Sub RunSpecsType2()
-    Dim Suite As New TestSuite
-    Suite.Description = "Od2Client Test Suite"
+    Dim oSuite As New TestSuite
+    oSuite.Description = "Od2Client Test Suite"
     
-    RegisterCommonSpecs Suite
-    RegisterOdxSpecs Suite, True
+    RegisterCommonSpecs oSuite
+    RegisterOdxSpecs oSuite, True
     
     ' Register specs from external spec modules
-    SpecOd2Client.RegisterSpecs Suite
-    SpecOd2Repository.RegisterSpecs Suite
+    SpecOd2Client.RegisterSpecs oSuite
+    SpecOd2Repository.RegisterSpecs oSuite
     
-    PrintSummary Suite
+    PrintSummary oSuite
 End Sub
 
-Private Sub RegisterCommonSpecs(Suite As TestSuite)
+Private Sub RegisterCommonSpecs(ByRef aSuite As TestSuite)
     ' Register specs from external spec modules
-    SpecJsonUtils.RegisterSpecs Suite
-    SpecOdJsonRpc.RegisterSpecs Suite
-    SpecOdFilter.RegisterSpecs Suite
+    SpecJsonUtils.RegisterSpecs aSuite
+    SpecOdRpc.RegisterSpecs aSuite
+    SpecOdFilter.RegisterSpecs aSuite
     
-    SpecOdxMemRs.RegisterSpecs Suite
+    SpecOdxMemRs.RegisterSpecs aSuite
 End Sub
 
-Private Sub RegisterOdxSpecs(Suite As TestSuite, aType2 As Boolean)
+Private Sub RegisterOdxSpecs(ByRef aSuite As TestSuite, ByVal aType2 As Boolean)
     ' Register specs from external spec modules
-    SpecOdxRepository.RegisterSpecs Suite, aType2
-    SpecOdxModel.RegisterSpecs Suite, aType2
+    SpecOdxRepository.RegisterSpecs aSuite, aType2
+    SpecOdxModel.RegisterSpecs aSuite, aType2
 End Sub
 
 ''
@@ -109,29 +109,29 @@ End Sub
 ''
 ' Prints the test summary and failed test details to the debug window.
 '
-' @param Suite TestSuite instance
+' @param aSuite TestSuite instance
 ''
-Private Sub PrintSummary(Suite As TestSuite)
+Private Sub PrintSummary(ByRef aSuite As TestSuite)
     Debug.Print "========================================"
-    Debug.Print " Test Suite: " & Suite.Description
+    Debug.Print " Test Suite: " & aSuite.Description
     Debug.Print "----------------------------------------"
-    Debug.Print " Passed : " & Suite.PassedTests.Count
-    Debug.Print " Failed : " & Suite.FailedTests.Count
-    Debug.Print " Pending: " & Suite.PendingTests.Count
-    Debug.Print " Total  : " & Suite.Tests.Count
+    Debug.Print " Passed : " & aSuite.PassedTests.Count
+    Debug.Print " Failed : " & aSuite.FailedTests.Count
+    Debug.Print " Pending: " & aSuite.PendingTests.Count
+    Debug.Print " Total  : " & aSuite.Tests.Count
     Debug.Print "========================================"
     
-    If Suite.FailedTests.Count > 0 Then
+    If aSuite.FailedTests.Count > 0 Then
         Debug.Print ""
         Debug.Print "[FAILED TESTS SUMMARY]"
         
-        Dim testObj As Object
-        For Each testObj In Suite.FailedTests
-            Dim v As Variant
-            For Each v In testObj.Failures
-                Debug.Print " - " & v, testObj.Description
-            Next v
-        Next testObj
+        Dim oTestObj As Object
+        For Each oTestObj In aSuite.FailedTests
+            Dim vItem As Variant
+            For Each vItem In oTestObj.Failures
+                Debug.Print " - " & vItem, oTestObj.Description
+            Next vItem
+        Next oTestObj
         
         Debug.Print "========================================"
     End If
@@ -143,7 +143,7 @@ End Sub
 ' @param aJson JSON string to validate
 ' @return Boolean True if valid JSON
 ''
-Public Function IsValidJson(aJson As String) As Boolean
+Public Function IsValidJson(ByRef aJson As String) As Boolean
 On Error GoTo ErrHandler
     WebHelpers.ParseJson aJson
     IsValidJson = True
@@ -160,27 +160,27 @@ End Function
 ''
 ' Asserts that two JSON strings are equivalent after parsing and re-serializing.
 '
-' @param oTest TestCase instance
+' @param aTest TestCase instance
 ' @param aExcept Expected JSON string
 ' @param aActual Actual JSON string
 ''
-Public Sub TestIsEqualJson(oTest As TestCase, aExcept As String, aActual As String)
+Public Sub TestIsEqualJson(ByRef aTest As TestCase, ByVal aExcept As String, ByVal aActual As String)
 On Error Resume Next
     Debug.Assert IsValidJson(aExcept)
     Debug.Assert IsValidJson(aActual)
-    oTest.IsEqual WebHelpers.ConvertToJson(WebHelpers.ParseJson(aExcept)), _
+    aTest.IsEqual WebHelpers.ConvertToJson(WebHelpers.ParseJson(aExcept)), _
         WebHelpers.ConvertToJson(WebHelpers.ParseJson(aActual))
 End Sub
 
 ''
 ' Asserts that two JSON comma-separated strings are equivalent.
 '
-' @param oTest TestCase instance
+' @param aTest TestCase instance
 ' @param aExcept Expected JSON CSV string
 ' @param aActual Actual JSON CSV string
 ''
-Public Sub TestIsEqualJsonCsv(oTest As TestCase, aExcept As String, aActual As String)
-    TestIsEqualJson oTest, "[" & aExcept & "]", "[" & aActual & "]"
+Public Sub TestIsEqualJsonCsv(ByRef aTest As TestCase, ByVal aExcept As String, ByVal aActual As String)
+    TestIsEqualJson aTest, "[" & aExcept & "]", "[" & aActual & "]"
 End Sub
 
 ''
@@ -195,10 +195,10 @@ End Sub
 ' @return OdClient Initialized OdClient instance
 ''
 Public Function CreateOdClient() As OdClient
-    Dim configPath As String
+    Dim sConfigPath As String
     
-    configPath = ThisWorkbook.FullName & ".secret.txt"
-    Set CreateOdClient = OdxFactory.CreateOdClient(aConfigPath:=configPath)
+    sConfigPath = ThisWorkbook.FullName & ".secret.txt"
+    Set CreateOdClient = OdxFactory.CreateOdClient(aConfigPath:=sConfigPath)
 
 End Function
 
@@ -208,9 +208,9 @@ End Function
 ' @return Od2Client Initialized Od2Client instance
 ''
 Public Function CreateOd2Client() As Od2Client
-    Dim configPath As String
+    Dim sConfigPath As String
     
-    configPath = ThisWorkbook.FullName & ".secret.txt"
-    Set CreateOd2Client = OdxFactory.CreateOd2Client(aConfigPath:=configPath)
+    sConfigPath = ThisWorkbook.FullName & ".secret.txt"
+    Set CreateOd2Client = OdxFactory.CreateOd2Client(aConfigPath:=sConfigPath)
 
 End Function
