@@ -1,4 +1,4 @@
-Attribute VB_Name = "SpecOdJsonRpc"
+Attribute VB_Name = "SpecOdRpc"
 ' External API - odoo-json-rpc-2-vba
 '
 ' MIT License

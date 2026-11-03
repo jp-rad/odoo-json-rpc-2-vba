@@ -2,7 +2,7 @@
 example	../src/ExampleOd2Tutrial.bas
 example	../src/ExampleOdTutrial.bas
 example	../src/ExampleOdxTutrial.bas
-example	../src/JsonUtils.bas
+library	../src/JsonUtils.bas
 library	../src/OdRpc.bas
 example	../src/OdxFactory.bas
 tests	../tests/SpecJsonUtils.bas
@@ -10,8 +10,8 @@ tests	../tests/SpecOd2Client.bas
 tests	../tests/SpecOd2Repository.bas
 tests	../tests/SpecOdClient.bas
 tests	../tests/SpecOdFilter.bas
-tests	../tests/SpecOdJsonRpc.bas
 tests	../tests/SpecOdRepository.bas
+tests	../tests/SpecOdRpc.bas
 tests	../tests/SpecOdxMemRs.bas
 tests	../tests/SpecOdxModel.bas
 tests	../tests/SpecOdxRepository.bas
