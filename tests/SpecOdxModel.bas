@@ -1,4 +1,4 @@
-Attribute VB_Name = "SpecOdxModelRemoteSync"
+Attribute VB_Name = "SpecOdxModel"
 ' External API - odoo-json-rpc-2-vba
 '
 ' MIT License

@@ -435,6 +435,53 @@ Public Function GetExternalIdFromModelAndId(ByRef aModel As String, ByRef aResId
 End Function
 
 ''
+' Generates an 8-character random hexadecimal string ID.
+'
+' @return String Generated 8-hex ID
+Private Function Generate8HexID() As String
+    Dim sChars As String
+    Dim i As Long
+    Dim sResult As String
+    
+    sChars = "0123456789abcdef"
+    Randomize
+    
+    sResult = ""
+    For i = 1 To 8
+        sResult = sResult & Mid(sChars, Int(Rnd * Len(sChars)) + 1, 1)
+    Next i
+    
+    Generate8HexID = sResult
+End Function
+
+''
+' Generates a unique External ID for the specified model.
+'
+' @param aModel Model name (e.g., "res.partner")
+' @return String Unique external ID string
+Public Function GenerateExternalId(ByRef aModel As String) As String
+    Dim sModel As String
+    Dim sExternalId As String
+    Dim nCnt As Long
+    
+    sModel = Replace(aModel, ".", "_")
+    
+    ' Loop to ensure uniqueness against existing external IDs in Odoo
+    Do
+        sExternalId = NormalizeExternalId(sModel & "_" & Generate8HexID)
+        If GetModelAndIdFromExternalId(sExternalId) Is Nothing Then
+            GenerateExternalId = sExternalId
+            Exit Function
+        End If
+        nCnt = nCnt + 1
+        If nCnt > 100 Then
+            ' Detailed error message when uniqueness generation exceeds the limit
+            Err.Raise CERR_API_EXECUTION, "OdxRepository", "Failed to generate a unique External ID for model '" & aModel & "' after 100 attempts. The namespace may be exhausted."
+        End If
+    Loop
+End Function
+
+''
 ' Registers a new External ID in ir.model.data for a given Model and Record ID (Insert Only).
 ' - If the Model and Record ID (model + res_id) already has a mapping, an exception is thrown.
 '

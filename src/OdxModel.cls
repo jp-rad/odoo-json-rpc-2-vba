@@ -1175,26 +1175,6 @@ Public Function FetchRead() As Long
 End Function
 
 ''
-' Generates an 8-character random hexadecimal string ID.
-'
-' @return String Generated 8-hex ID
-Private Function Generate8HexID() As String
-    Dim sChars As String
-    Dim i As Long
-    Dim sResult As String
-    
-    sChars = "0123456789abcdef"
-    Randomize
-    
-    sResult = ""
-    For i = 1 To 8
-        sResult = sResult & Mid(sChars, Int(Rnd * Len(sChars)) + 1, 1)
-    Next i
-    
-    Generate8HexID = sResult
-End Function
-
-''
 ' Upserts the current record in the local Recordset to Odoo remotely.
 '
 ' @param aOnlyChanged Optional Boolean to output only changed fields (Default: True)
@@ -1219,7 +1199,8 @@ Private Function UpsertCurrentRecordRemote(Optional ByVal aOnlyChanged As Boolea
     If bHasExternalIdField Then
         sExtId = mRs.GetFieldValueOrDefault(mExternalIdFieldName, "")
         If Len(Trim(sExtId)) = 0 Then
-            sExtId = "_import_." & ModelName & "_" & Generate8HexID()
+            sExtId = mRepository.GenerateExternalId(mModelName)
+            mRs.FieldValue(mExternalIdFieldName) = sExtId
         End If
         Set extIdDict = New Dictionary
         extIdDict.Add sExtId, fieldValues
