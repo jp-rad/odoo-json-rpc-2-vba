@@ -26,30 +26,25 @@ Attribute VB_Name = "JsonUtils"
 
 Option Explicit
 
-''
-' ==============================================================================
-' Module: JsonUtils (JSON Lookup & Count Utilities)
-' ==============================================================================
-' Description:
-'   Provides helper functions for querying and analyzing JSON strings, including
-'   path-based value extraction (`JSONLOOKUP`) and array element counting (`JSONCOUNT`).
-' ==============================================================================
-''
+' ------------------------------------------------------------------------------
+' Module: JsonUtils.bas
+' Purpose: JSON Lookup & Count Utilities
+' ------------------------------------------------------------------------------
 
 Private Const CESCAPED_SLASH As String = vbBack
 
 ''
 ' Counts the number of items in a JSON array string.
 '
-' @param jsonArray JSON array string to parse
+' @param aJsonArray JSON array string to parse
 ' @return Variant The number of items in the array, or #VALUE! on error
 ''
-Public Function JSONCOUNT(ByVal jsonArray As String) As Variant
+Public Function JSONCOUNT(ByRef aJsonArray As Variant) As Variant
 On Error GoTo ErrHandler
-    Dim coll As Collection
+    Dim oColl As Collection
 
-    Set coll = WebHelpers.ParseJson(jsonArray)
-    JSONCOUNT = coll.Count
+    Set oColl = WebHelpers.ParseJson(aJsonArray)
+    JSONCOUNT = oColl.Count
 
 ExitProc:
     Exit Function
@@ -61,27 +56,27 @@ End Function
 ''
 ' Extracts a value from a JSON string using a path expression.
 '
-' @param jsonInput JSON string to parse
-' @param jsonPath Path to the target value in the JSON structure using '/' as a separator.
-'                 Array elements can be accessed with square brackets, e.g., "items[0]".
-' @param returnNAForFalse (Optional, default True) If True, returns #N/A for False boolean values.
+' @param aJsonInput JSON string to parse
+' @param aJsonPath Path to the target value in the JSON structure using '/' as a separator.
+'                  Array elements can be accessed with square brackets, e.g., "items[0]".
+' @param aReturnNAForFalse (Optional, default True) If True, returns #N/A for False boolean values.
 ' @return Variant The value found at the specified path, or #N/A / #REF! / #VALUE! on error
 ''
-Public Function JSONLOOKUP(ByVal jsonInput As String, ByVal jsonPath As String, Optional returnNAForFalse As Boolean = True) As Variant
+Public Function JSONLOOKUP(ByRef aJsonInput As Variant, Optional ByVal aJsonPath As String = "", Optional ByVal aReturnNAForFalse As Boolean = True) As Variant
 On Error GoTo ErrHandler
-    Dim jsonObject As Object
+    Dim oJsonObject As Object
 
     ' Parse JSON string into an object
-    Set jsonObject = WebHelpers.ParseJson(jsonInput)
+    Set oJsonObject = WebHelpers.ParseJson(aJsonInput)
 
     ' Escape "\/"
-    jsonPath = Replace(jsonPath, "\/", CESCAPED_SLASH)
+    aJsonPath = Replace(aJsonPath, "\/", CESCAPED_SLASH)
 
     ' Normalize jsonPath
-    jsonPath = Replace(jsonPath, "][", "]/[")
+    aJsonPath = Replace(aJsonPath, "][", "]/[")
 
     ' Extract value using the specified JSON path
-    ExtractJsonValue jsonObject, jsonPath, JSONLOOKUP
+    ExtractJsonValue oJsonObject, aJsonPath, JSONLOOKUP
     If IsNull(JSONLOOKUP) Then
         JSONLOOKUP = CVErr(xlErrNA)
         GoTo ExitProc
@@ -90,7 +85,7 @@ On Error GoTo ErrHandler
         JSONLOOKUP = WebHelpers.ConvertToJson(JSONLOOKUP)
         GoTo ExitProc
     End If
-    If returnNAForFalse Then
+    If aReturnNAForFalse Then
         If VarType(JSONLOOKUP) = vbBoolean Then
             If Not JSONLOOKUP Then
                 JSONLOOKUP = CVErr(xlErrNA)
@@ -114,100 +109,100 @@ End Function
 ''
 ' Recursively extracts a value from a JSON object or array using an escaped path expression.
 '
-' @param jsonObject Root JSON object or collection
-' @param escapedJsonPath Escaped path expression
-' @param rResult [Out] Target variant to store the extracted value
+' @param aJsonObject Root JSON object or collection
+' @param aEscapedJsonPath Escaped path expression
+' @param aResult [Out] Target variant to store the extracted value
 ' @return Boolean True on successful extraction
 ''
-Private Function ExtractJsonValue(jsonObject As Object, escapedJsonPath As String, ByRef rResult As Variant) As Boolean
-    Dim remainingPath As String
-    Dim nestedJsonObject As Object
-    Dim pathSegments() As String
-    Dim Key As String
-    Dim Index As Integer
-    Dim hasIndex As Boolean
-    Dim tempItem As Variant
-    Dim dict As Dictionary
-    Dim coll As Collection
+Private Function ExtractJsonValue(ByRef aJsonObject As Object, ByVal aEscapedJsonPath As String, ByRef aResult As Variant) As Boolean
+    Dim sRemainingPath As String
+    Dim oNestedJsonObject As Object
+    Dim arrPathSegments() As String
+    Dim sKey As String
+    Dim nIndex As Long
+    Dim bHasIndex As Boolean
+    Dim vTempItem As Variant
+    Dim oDict As Object
+    Dim oColl As Object
 
     ' Split the escaped JSON path by '/' to extract the first key or index
-    pathSegments = Split(escapedJsonPath, "/", 2)
-    If UBound(pathSegments) >= 0 Then
-        Key = Trim(pathSegments(0))
+    arrPathSegments = Split(aEscapedJsonPath, "/", 2)
+    If UBound(arrPathSegments) >= 0 Then
+        sKey = Trim(arrPathSegments(0))
     Else
-        Key = ""
+        sKey = ""
     End If
-    If UBound(pathSegments) > 0 Then
-        remainingPath = pathSegments(1)
+    If UBound(arrPathSegments) > 0 Then
+        sRemainingPath = arrPathSegments(1)
     Else
-        remainingPath = ""
+        sRemainingPath = ""
     End If
 
     ' Handle key with index notation, e.g., item[0]
-    If InStr(Key, "[") > 0 Then
-        If Right(Key, 1) <> "]" Then
+    If InStr(sKey, "[") > 0 Then
+        If Right(sKey, 1) <> "]" Then
             Err.Raise 9 ' Index out of bounds, returns CVErr(xlErrRef)
         End If
-        Key = Replace(Key, "[", "/")
-        Key = Replace(Key, "]", "")
-        pathSegments = Split(Key, "/")
-        Key = Trim(pathSegments(0))
-        If Not IsNumeric(pathSegments(1)) Then
+        sKey = Replace(sKey, "[", "/")
+        sKey = Replace(sKey, "]", "")
+        arrPathSegments = Split(sKey, "/")
+        sKey = Trim(arrPathSegments(0))
+        If Not IsNumeric(arrPathSegments(1)) Then
             Err.Raise 9 ' Index out of bounds, returns CVErr(xlErrRef)
         End If
-        Index = pathSegments(1) + 1 ' Collections in VBA are 1-based
-        hasIndex = True
+        nIndex = CLng(arrPathSegments(1)) + 1 ' Collections in VBA are 1-based
+        bHasIndex = True
     Else
-        hasIndex = False
+        bHasIndex = False
     End If
 
     ' Retrieve the value from the dictionary
-    If Key = "" Then
-        Set tempItem = jsonObject
+    If sKey = "" Then
+        Set vTempItem = aJsonObject
     Else
-        Key = Replace(Key, CESCAPED_SLASH, "/") ' Unescape slash (restore escaped "/")
-        Set dict = jsonObject
-        If Not dict.Exists(Key) Then
+        sKey = Replace(sKey, CESCAPED_SLASH, "/") ' Unescape slash (restore escaped "/")
+        Set oDict = aJsonObject
+        If Not oDict.Exists(sKey) Then
             Err.Raise 9 ' Index out of bounds, returns CVErr(xlErrRef)
         End If
-        If IsObject(dict.Item(Key)) Then
-            Set tempItem = dict.Item(Key)
+        If IsObject(oDict.Item(sKey)) Then
+            Set vTempItem = oDict.Item(sKey)
         Else
-            tempItem = dict.Item(Key)
+            vTempItem = oDict.Item(sKey)
         End If
     End If
-    If IsNull(tempItem) Then
+    If IsNull(vTempItem) Then
         GoTo ExitProc
     End If
 
     ' Retrieve value from collection if indexed
-    If hasIndex Then
-        If TypeName(tempItem) <> "Collection" Then
+    If bHasIndex Then
+        If TypeName(vTempItem) <> "Collection" Then
             Err.Raise 9 ' Index out of bounds, returns CVErr(xlErrRef)
         End If
-        Set coll = tempItem
-        If IsObject(coll.Item(Index)) Then
-            Set tempItem = coll.Item(Index)
+        Set oColl = vTempItem
+        If IsObject(oColl.Item(nIndex)) Then
+            Set vTempItem = oColl.Item(nIndex)
         Else
-            tempItem = coll.Item(Index)
+            vTempItem = oColl.Item(nIndex)
         End If
     End If
-    If IsNull(tempItem) Then
+    If IsNull(vTempItem) Then
         GoTo ExitProc
     End If
 
     ' Recursively resolve the remaining path
-    If remainingPath <> "" Then
-        Set nestedJsonObject = tempItem
-        ExtractJsonValue nestedJsonObject, remainingPath, tempItem
+    If sRemainingPath <> "" Then
+        Set oNestedJsonObject = vTempItem
+        ExtractJsonValue oNestedJsonObject, sRemainingPath, vTempItem
     End If
 
 ExitProc:
     ' Assign result
-    If IsObject(tempItem) Then
-        Set rResult = tempItem
+    If IsObject(vTempItem) Then
+        Set aResult = vTempItem
     Else
-        rResult = tempItem
+        aResult = vTempItem
     End If
 
 End Function

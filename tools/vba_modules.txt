@@ -2,7 +2,7 @@
 example	../src/ExampleOd2Tutrial.bas
 example	../src/ExampleOdTutrial.bas
 example	../src/ExampleOdxTutrial.bas
-example	../src/JsonUtils.bas
+library	../src/JsonUtils.bas
 library	../src/OdRpc.bas
 example	../src/OdxFactory.bas
 tests	../tests/SpecJsonUtils.bas
